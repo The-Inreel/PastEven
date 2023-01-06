@@ -2,6 +2,12 @@ import sys
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QToolBar
 from PyQt5 import QtGui, QtCore
 from PyQt5.QtCore import QSize, Qt
+from enum import Enum
+
+class Tools(Enum):
+    PENCIL = 1
+    ERASER = 2
+
 
 class Canvas(QWidget):
     def __init__(self, parent=None):
@@ -15,8 +21,10 @@ class Canvas(QWidget):
         self.label.setPixmap(self.canvas)
         self.pixmap_history = []
         self.pixmap_redohist = []
+        self.tools = Tools.PENCIL
+        self.color = QtGui.QColor(0, 0, 0)
         
-        
+                
     def mouseMoveEvent(self, event):
         if self.last_x is None: # First event.
             self.last_x = event.x()
@@ -27,7 +35,9 @@ class Canvas(QWidget):
         pp = painter.pen()
         
         pp.setWidth(4)
-        painter.setPen(pp)        
+        # Sets the pen color to the color var if using pencil else it will set to white (erase)
+        pp.setColor(self.color if self.tools == Tools.PENCIL else QtGui.QColor(255, 255, 255))
+        painter.setPen(pp)     
         painter.drawLine(self.last_x, self.last_y, event.x(), event.y())
         painter.end()
         self.update()
@@ -69,6 +79,9 @@ class Canvas(QWidget):
             self.pixmap_history.append(self.label.pixmap().copy())
             self.label.setPixmap(self.pixmap_redohist.pop())
             self.update()
+            
+    def setTool(self, tool):
+        self.tools = tool
     
 
 class MainWindow(QMainWindow):
@@ -78,21 +91,46 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("PastEven")
         self.setMinimumSize(QSize(1500, 1000))
         
-        toolBar = QToolBar()
+        self.toolBar = QToolBar()
         self.canvas = Canvas()
 
         # Add buttons to toolbar - undo and redo respectively
         undoButton = QPushButton("Undo")
         undoButton.clicked.connect(self.canvas.undo)
-        toolBar.addWidget(undoButton)
+        self.toolBar.addWidget(undoButton)
 
         redoButton = QPushButton("Redo")
         redoButton.clicked.connect(self.canvas.redo)
-        toolBar.addWidget(redoButton)
+        self.toolBar.addWidget(redoButton)
         
+        self.toolBar.addSeparator()
+        
+        pencilButton = QPushButton()
+        pencilButton.clicked.connect(lambda: self.canvas.setTool(Tools.PENCIL))
+        pencilButton.setIcon(QtGui.QIcon("resources/pencil.png"))
+        pencilButton.setCheckable(True)
+        pencilButton.setChecked(True)
+        self.toolBar.addWidget(pencilButton)
+        
+        eraserButton = QPushButton()
+        eraserButton.clicked.connect(lambda: self.canvas.setTool(Tools.ERASER))
+        eraserButton.setIcon(QtGui.QIcon("resources/eraser.png"))
+        eraserButton.setCheckable(True)
+        self.toolBar.addWidget(eraserButton)
+        
+        pencilButton.clicked.connect(lambda: self.toolButtonClicked(eraserButton))
+        eraserButton.clicked.connect(lambda: self.toolButtonClicked(pencilButton))
+
         # Added the label as a central widget instead of the whole thing, and added the toolbar
         self.setCentralWidget(self.canvas)
-        self.addToolBar(toolBar)
+        self.addToolBar(self.toolBar)
+        
+    # When more tools come change other tools to a list or something idk
+    # Rn it just toggles the button use when clicked more of a visual thing
+    def toolButtonClicked(self, otherTools):
+        sender = self.sender()
+        sender.setChecked(True)
+        otherTools.setChecked(False)
 
 
 if __name__ == '__main__':
