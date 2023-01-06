@@ -57,7 +57,7 @@ class MainWindow(QWidget):
             self.update()
         elif event.key() == QtCore.Qt.Key_Z and event.modifiers() & Qt.Modifier.CTRL:
             self.undo()
-        elif event.key() == QtCore.Qt.Key_R and event.modifiers() & Qt.Modifier.CTRL:
+        elif event.key() == QtCore.Qt.Key_Y and event.modifiers() & Qt.Modifier.CTRL:
             self.redo()
 
         event.accept()
