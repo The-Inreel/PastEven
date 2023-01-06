@@ -1,3 +1,5 @@
+# TEST FILE FOR RISHAB
+
 import sys
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QHBoxLayout, QVBoxLayout
 from PyQt5 import QtGui, QtCore
@@ -17,6 +19,7 @@ class MainWindow(QWidget):
         self.last_x, self.last_y = None, None
         self.label.setPixmap(self.canvas)
         self.pixmap_history = []
+        self.pixmap_redohist = []
     
     
     def mouseMoveEvent(self, e):
@@ -38,7 +41,11 @@ class MainWindow(QWidget):
         self.last_y = e.y()
         
     def mousePressEvent(self, event):
+        if len(self.pixmap_history) > 30: #20 felt weak so gave them 30, redo is limited by undo
+            self.pixmap_history.pop(0)
+        
         self.pixmap_history.append(self.label.pixmap().copy())
+        self.pixmap_redohist.clear() #clears redo history if you draw (same as paint3d)
         
     def mouseReleaseEvent(self, e):
         self.last_x = None
@@ -50,12 +57,21 @@ class MainWindow(QWidget):
             self.update()
         elif event.key() == QtCore.Qt.Key_Z and event.modifiers() & Qt.Modifier.CTRL:
             self.undo()
+        elif event.key() == QtCore.Qt.Key_R and event.modifiers() & Qt.Modifier.CTRL:
+            self.redo()
 
         event.accept()
     
     def undo(self):
         if self.pixmap_history:
+            self.pixmap_redohist.append(self.label.pixmap().copy())
             self.label.setPixmap(self.pixmap_history.pop())
+            self.update()
+
+    def redo(self):
+        if self.pixmap_redohist:
+            self.pixmap_history.append(self.label.pixmap().copy())
+            self.label.setPixmap(self.pixmap_redohist.pop())
             self.update()
 
 
