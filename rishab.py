@@ -1,26 +1,42 @@
 # TEST FILE FOR RISHAB
 
 import sys
-from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QHBoxLayout, QVBoxLayout
+from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QHBoxLayout, QVBoxLayout, QToolBar, QToolButton, QAction
 from PyQt5 import QtGui, QtCore
 from PyQt5.QtCore import QSize, Qt
 
 
-class MainWindow(QWidget):
+# Changed the QWidget to QMainWindow so that it isn't treated as ust one widget
+class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
     
         self.setWindowTitle("PastEven")
-        self.setMinimumSize(QSize(600, 600))
+        self.setMinimumSize(QSize(2000, 1000))
         
         self.label = QLabel(self)
-        self.canvas = QtGui.QPixmap(500, 500)
+        toolBar = QToolBar()
+        
+        # Add buttons to toolbar - undo and redo respectively
+        undoButton = QPushButton("Undo")
+        undoButton.clicked.connect(self.undo)
+        toolBar.addWidget(undoButton)
+
+        redoButton = QPushButton("Redo")
+        redoButton.clicked.connect(self.redo)
+        toolBar.addWidget(redoButton)
+        
+        # Set canvas settings
+        self.canvas = QtGui.QPixmap(2000, 900)
         self.canvas.fill(color = Qt.GlobalColor.white)
         self.last_x, self.last_y = None, None
         self.label.setPixmap(self.canvas)
         self.pixmap_history = []
         self.pixmap_redohist = []
-    
+
+        # Added the label as a menu widget instead of the whole thing, and added the toolbar
+        self.setMenuWidget(self.label)
+        self.addToolBar(toolBar)
     
     def mouseMoveEvent(self, e):
         if self.last_x is None: # First event.
