@@ -23,6 +23,8 @@ class Canvas(QWidget):
         self.pixmap_redohist = []
         self.tools = Tools.PENCIL
         self.color = QtGui.QColor(0, 0, 0)
+        self.painter = None
+        self.pp = None
         
                 
     def mouseMoveEvent(self, event):
@@ -31,16 +33,7 @@ class Canvas(QWidget):
             self.last_y = event.y()
             return # Ignore the first time.
 
-        painter = QtGui.QPainter(self.label.pixmap())
-        pp = painter.pen()
-        
-        pp.setWidth(4)
-        # Sets the pen color to the color var if using pencil else it will set to white (erase)
-        pp.setColor(self.color if self.tools == Tools.PENCIL else QtGui.QColor(255, 255, 255))
-        painter.setPen(pp)     
-        painter.drawLine(self.last_x, self.last_y, event.x(), event.y())
-        painter.end()
-        self.update()
+        self.drawStroke(event)
         
         self.last_x = event.x()
         self.last_y = event.y()
@@ -67,6 +60,18 @@ class Canvas(QWidget):
             self.redo()
 
         event.accept()
+        
+    def drawStroke(self, event):
+        self.painter = QtGui.QPainter(self.label.pixmap())
+        self.pp = self.painter.pen()
+        
+        self.pp.setWidth(4)
+        # Sets the pen color to the color var if using pencil else it will set to white (erase)
+        self.pp.setColor(self.color if self.tools == Tools.PENCIL else QtGui.QColor(255, 255, 255))
+        self.painter.setPen(self.pp)     
+        self.painter.drawLine(self.last_x, self.last_y, event.x(), event.y())
+        self.painter.end()
+        self.update()
     
     def undo(self):
         if self.pixmap_history:
