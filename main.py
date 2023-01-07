@@ -26,8 +26,10 @@ class Canvas(QWidget):
         self.tools = Tools.PENCIL
         self.color = QtGui.QColor(0, 0, 0)
         self.painter = None
-        self.pp = None
         self.ppSize = 4
+        self.brush = QtGui.QBrush(Qt.GlobalColor.black, Qt.BrushStyle.SolidPattern)
+        self.pp = QtGui.QPen(Qt.GlobalColor.black, self.ppSize, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+        self.pp.setBrush(self.brush)
         
                 
     def mouseMoveEvent(self, event):
@@ -66,15 +68,15 @@ class Canvas(QWidget):
         
     def drawStroke(self, event):
         self.painter = QtGui.QPainter(self.label.pixmap())
-        self.pp = self.painter.pen()
-        
+        self.painter.setRenderHint(QtGui.QPainter.RenderHint.HighQualityAntialiasing)
         self.pp.setWidth(self.ppSize)
+        self.painter.setPen(self.pp)
+        
         # Sets the pen color to the color var if using pencil else it will set to white (erase)
         self.pp.setColor(self.color if self.tools == Tools.PENCIL else QtGui.QColor(255, 255, 255))
-        self.painter.setPen(self.pp)     
         self.painter.drawLine(self.last_x, self.last_y, event.x(), event.y())
         self.painter.end()
-        self.update() 
+        self.update()
 
     def undo(self):
         if self.pixmap_history:
