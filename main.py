@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QToolBar, QSlider
+from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy
 from PyQt5 import QtGui, QtCore
 from PyQt5.QtCore import QSize, Qt
 from enum import Enum
@@ -103,6 +103,8 @@ class MainWindow(QMainWindow):
         
         self.toolBar = QToolBar()
         self.canvas = Canvas()
+
+        self.setStyleSheet("background: #E0FFFF")
 
         # Add buttons to toolbar - undo and redo respectively
         undoButton = QPushButton("Undo")
