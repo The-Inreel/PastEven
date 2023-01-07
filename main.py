@@ -1,7 +1,8 @@
 import sys
-from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy
+from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout
 from PyQt5 import QtGui, QtCore
 from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtGui import QPixmap
 from enum import Enum
 
 class Tools(Enum):
@@ -15,7 +16,8 @@ class Canvas(QWidget):
         self.label = QLabel(self)
     
         # Set canvas settings
-        self.canvas = QtGui.QPixmap(1500, 900)
+        self.canvas = QPixmap(1500, 900)
+        self.canvas
         self.canvas.fill(color = Qt.GlobalColor.white)
         self.last_x, self.last_y = None, None
         self.label.setPixmap(self.canvas)
@@ -92,6 +94,12 @@ class Canvas(QWidget):
     def setPencilSize(self, value):
         self.ppSize = value
     
+    def temp(self, height, width):
+        self.label.x = height + 200
+        self.label.y = -100000
+    
+    def sizeHint(self):
+        return QSize(1500, 900)
     
 
 class MainWindow(QMainWindow):
@@ -100,6 +108,8 @@ class MainWindow(QMainWindow):
     
         self.setWindowTitle("PastEven")
         self.setMinimumSize(QSize(1500, 1000))
+
+        self.layout = QVBoxLayout()
         
         self.toolBar = QToolBar()
         self.canvas = Canvas()
@@ -119,14 +129,14 @@ class MainWindow(QMainWindow):
         
         pencilButton = QPushButton()
         pencilButton.clicked.connect(lambda: self.canvas.setTool(Tools.PENCIL))
-        pencilButton.setIcon(QtGui.QIcon("resources/pencil.png"))
+        pencilButton.setIcon(QtGui.QIcon("resources/icons/pencil.png"))
         pencilButton.setCheckable(True)
         pencilButton.setChecked(True)
         self.toolBar.addWidget(pencilButton)
         
         eraserButton = QPushButton()
         eraserButton.clicked.connect(lambda: self.canvas.setTool(Tools.ERASER))
-        eraserButton.setIcon(QtGui.QIcon("resources/eraser.png"))
+        eraserButton.setIcon(QtGui.QIcon("resources/icons/eraser.png"))
         eraserButton.setCheckable(True)
         self.toolBar.addWidget(eraserButton)
         
@@ -165,11 +175,14 @@ class MainWindow(QMainWindow):
         self.sizeSlider.valueChanged.connect(self.canvas.setPencilSize)
         self.sizeSlider.valueChanged.connect(lambda value: self.sizeLabel.setText(str(value)))
         self.historySlider.sliderMoved.connect(self.actionTriggered)
-        
 
         # Added the label as a central widget instead of the whole thing, and added the toolbar
-        self.setCentralWidget(self.canvas)
+        # self.setCentralWidget(self.layout)
         self.addToolBar(self.toolBar)
+        self.layout.addWidget(self.canvas)
+        self.layout.setAlignment(self.canvas, Qt.AlignCenter)
+        self.setCentralWidget(QWidget(self))
+        self.centralWidget().setLayout(self.layout)
         
     # When more tools come change other tools to a list or something idk
     # Rn it just toggles the button use when clicked more of a visual thing
@@ -188,6 +201,11 @@ class MainWindow(QMainWindow):
             self.canvas.undo()
         elif val < self.historySlider.value():
             self.canvas.redo()
+
+    def resizeEvent(self, event):
+        print("DETECTED")
+        self.canvas.temp(event.size().height(), event.size().width())
+        print("self.canvas.size ", self.canvas.size)
 
 
 if __name__ == '__main__':
