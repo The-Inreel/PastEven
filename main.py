@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QToolBar
+from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QToolBar, QSlider
 from PyQt5 import QtGui, QtCore
 from PyQt5.QtCore import QSize, Qt
 from enum import Enum
@@ -15,7 +15,7 @@ class Canvas(QWidget):
         self.label = QLabel(self)
     
         # Set canvas settings
-        self.canvas = QtGui.QPixmap(1100, 900)
+        self.canvas = QtGui.QPixmap(1500, 900)
         self.canvas.fill(color = Qt.GlobalColor.white)
         self.last_x, self.last_y = None, None
         self.label.setPixmap(self.canvas)
@@ -25,6 +25,7 @@ class Canvas(QWidget):
         self.color = QtGui.QColor(0, 0, 0)
         self.painter = None
         self.pp = None
+        self.ppSize = 4
         
                 
     def mouseMoveEvent(self, event):
@@ -65,14 +66,14 @@ class Canvas(QWidget):
         self.painter = QtGui.QPainter(self.label.pixmap())
         self.pp = self.painter.pen()
         
-        self.pp.setWidth(4)
+        self.pp.setWidth(self.ppSize)
         # Sets the pen color to the color var if using pencil else it will set to white (erase)
         self.pp.setColor(self.color if self.tools == Tools.PENCIL else QtGui.QColor(255, 255, 255))
         self.painter.setPen(self.pp)     
         self.painter.drawLine(self.last_x, self.last_y, event.x(), event.y())
         self.painter.end()
-        self.update()
-    
+        self.update() 
+
     def undo(self):
         if self.pixmap_history:
             self.pixmap_redohist.append(self.label.pixmap().copy())
@@ -87,6 +88,10 @@ class Canvas(QWidget):
             
     def setTool(self, tool):
         self.tools = tool
+    
+    def setPencilSize(self, value):
+        self.ppSize = value
+    
     
 
 class MainWindow(QMainWindow):
@@ -125,6 +130,40 @@ class MainWindow(QMainWindow):
         
         pencilButton.clicked.connect(lambda: self.toolButtonClicked(eraserButton))
         eraserButton.clicked.connect(lambda: self.toolButtonClicked(pencilButton))
+        
+        self.sizeSlider = QSlider()
+        self.sizeSlider.setMinimum(1)
+        self.sizeSlider.setMaximum(100)
+        self.sizeSlider.setValue(4)
+        self.toolBar.addWidget(self.sizeSlider)
+        
+        self.toolBar.addSeparator()
+
+        self.historySlider = QSlider()
+        self.historySlider.setMinimum(0)
+        self.historySlider.setMaximum(len(self.canvas.pixmap_history) - 1)
+        self.historySlider.setValue(len(self.canvas.pixmap_history) - 1)
+        self.historySlider.setOrientation(QtCore.Qt.Orientation.Horizontal)
+        self.historySlider.setMaximumWidth(400)
+        
+        self.sizeLabel = QLabel(str(self.canvas.ppSize))
+        self.toolBar.addWidget(self.sizeLabel)
+
+        # added spacer to use text - improve later when i know how to like actually change the spacing
+        # p.s. we should probably use some kind of organizer like a vbox or whatever its called
+        self.spacer = QLabel("                                                                               History:        ")
+        self.toolBar.addWidget(self.spacer)
+
+        # gave toolbar bit of color so we can see
+        self.toolBar.setStyleSheet("QToolBar { background : #E0FFFF }")
+        self.toolBar.addWidget(self.historySlider)
+        self.toolBar.toggleViewAction().setEnabled(False)
+        # prevents hiding toolbar cuz if you remove it, you can't add it back
+        
+        self.sizeSlider.valueChanged.connect(self.canvas.setPencilSize)
+        self.sizeSlider.valueChanged.connect(lambda value: self.sizeLabel.setText(str(value)))
+        self.historySlider.sliderMoved.connect(self.actionTriggered)
+        
 
         # Added the label as a central widget instead of the whole thing, and added the toolbar
         self.setCentralWidget(self.canvas)
@@ -136,6 +175,17 @@ class MainWindow(QMainWindow):
         sender = self.sender()
         sender.setChecked(True)
         otherTools.setChecked(False)
+    
+    def mousePressEvent(self, event):
+        self.historySlider.setMaximum(len(self.canvas.pixmap_history) - 1)
+
+    # had to do a bunch of research on how this signal processing works but
+    # essentially if you move the slider one way it undoes, other way redoes
+    def actionTriggered(self, val):
+        if val > self.historySlider.value():
+            self.canvas.undo()
+        elif val < self.historySlider.value():
+            self.canvas.redo()
 
 
 if __name__ == '__main__':
