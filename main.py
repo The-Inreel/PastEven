@@ -120,12 +120,12 @@ class MainWindow(QMainWindow):
 
         self.setStyleSheet("background: #E0FFFF")
 
-        saveButton = QPushButton("Save ")
+        saveButton = QPushButton("Save")
         saveButton.clicked.connect(self.canvas.save)
         saveButton.setIcon(QtGui.QIcon("resources/icons/save.png"))
         self.toolBar.addWidget(saveButton)
 
-        loadButton = QPushButton("Load ")
+        loadButton = QPushButton("Load")
         loadButton.clicked.connect(self.canvas.save)
         loadButton.setIcon(QtGui.QIcon("resources/icons/load.png"))
         self.toolBar.addWidget(loadButton)
