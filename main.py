@@ -17,7 +17,6 @@ class Canvas(QWidget):
     
         # Set canvas settings
         self.canvas = QPixmap(1500, 900)
-        self.canvas
         self.canvas.fill(color = Qt.GlobalColor.white)
         self.last_x, self.last_y = None, None
         self.label.setPixmap(self.canvas)
@@ -102,6 +101,9 @@ class Canvas(QWidget):
     
     def sizeHint(self):
         return QSize(1500, 900)
+
+    def save(self):
+        self.label.pixmap().toImage().save("saves\pastEven.png")
     
 
 class MainWindow(QMainWindow):
@@ -117,6 +119,18 @@ class MainWindow(QMainWindow):
         self.canvas = Canvas()
 
         self.setStyleSheet("background: #E0FFFF")
+
+        saveButton = QPushButton("Save ")
+        saveButton.clicked.connect(self.canvas.save)
+        saveButton.setIcon(QtGui.QIcon("resources/icons/save.png"))
+        self.toolBar.addWidget(saveButton)
+
+        loadButton = QPushButton("Load ")
+        loadButton.clicked.connect(self.canvas.save)
+        loadButton.setIcon(QtGui.QIcon("resources/icons/load.png"))
+        self.toolBar.addWidget(loadButton)
+
+        self.toolBar.addSeparator()
 
         # Add buttons to toolbar - undo and redo respectively
         undoButton = QPushButton("Undo")
