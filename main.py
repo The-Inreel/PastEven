@@ -2,8 +2,11 @@ import sys
 from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout
 from PyQt5 import QtGui, QtCore
 from PyQt5.QtCore import QSize, Qt
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QImage
 from enum import Enum
+
+import cv2
+import np
 
 class Tools(Enum):
     PENCIL = 1
@@ -62,6 +65,8 @@ class Canvas(QWidget):
             self.undo()
         elif event.key() == QtCore.Qt.Key_Y and event.modifiers() & Qt.Modifier.CTRL:
             self.redo()
+        elif event.key() == QtCore.Qt.Key_P:
+            self.findBorder()
 
         event.accept()
         
@@ -104,6 +109,15 @@ class Canvas(QWidget):
 
     def save(self):
         self.label.pixmap().toImage().save("saves\pastEven.png")
+    
+    def findBorder(self):
+        pixmapAsImage = self.label.pixmap().toImage()
+        cv_image = np.array(pixmapAsImage.bits()).reshape(pixmapAsImage.height(), pixmapAsImage.width(), 4) 
+        canny_image = cv2.Canny(cv_image, 100, 200)
+        height, width, channel = canny_image.shape
+        bytesPerLine = 3 * width
+        qImg = QImage(canny_image.data, width, height, bytesPerLine, QImage.Format_RGB888)
+        self.label.setPixmap(pixmap = QPixmap.fromImage(qImg))
     
 
 class MainWindow(QMainWindow):
@@ -222,6 +236,7 @@ class MainWindow(QMainWindow):
         print("DETECTED")
         self.canvas.temp(event.size().height(), event.size().width())
         print("self.canvas.size ", self.canvas.size)
+        
 
 
 if __name__ == '__main__':
