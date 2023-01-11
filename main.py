@@ -26,7 +26,7 @@ class Canvas(QWidget):
         self.pixmap_history = []
         self.pixmap_redohist = []
         self.tools = Tools.PENCIL
-        self.color = QtGui.QColor(0, 0, 0)
+        self.color = QtGui.QColor(255, 0, 0)
         self.painter = None
         self.ppSize = 4
         self.brush = QtGui.QBrush(Qt.GlobalColor.black, Qt.BrushStyle.SolidPattern)
@@ -112,12 +112,16 @@ class Canvas(QWidget):
     
     def findBorder(self):
         pixmapAsImage = self.label.pixmap().toImage()
-        cv_image = np.array(pixmapAsImage.bits()).reshape(pixmapAsImage.height(), pixmapAsImage.width(), 4) 
-        canny_image = cv2.Canny(cv_image, 100, 200)
-        height, width, channel = canny_image.shape
-        bytesPerLine = 3 * width
-        qImg = QImage(canny_image.data, width, height, bytesPerLine, QImage.Format_RGB888)
-        self.label.setPixmap(pixmap = QPixmap.fromImage(qImg))
+        temp = pixmapAsImage.bits()
+        temp.setsize(pixmapAsImage.byteCount())
+        cv_image = np.array(temp).reshape(pixmapAsImage.height(), pixmapAsImage.width(), 4) 
+        gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
+        canny_image = cv2.Canny(gray, 0, 30)
+        color_image = cv2.merge([canny_image, canny_image, canny_image])
+        qImg = QImage(color_image.data, color_image.shape[1], color_image.shape[0], color_image.strides[0], QImage.Format_RGB888)
+        qImg.invertPixels()
+        self.label.setPixmap(QPixmap.fromImage(qImg))
+        self.update()
     
 
 class MainWindow(QMainWindow):
