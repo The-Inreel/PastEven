@@ -6,7 +6,7 @@ from PyQt5.QtGui import QPixmap, QImage
 from enum import Enum
 
 import cv2
-import np
+import numpy as np
 
 class Tools(Enum):
     PENCIL = 1
@@ -115,9 +115,12 @@ class Canvas(QWidget):
         temp = pixmapAsImage.bits()
         temp.setsize(pixmapAsImage.byteCount())
         cv_image = np.array(temp).reshape(pixmapAsImage.height(), pixmapAsImage.width(), 4) 
-        gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
-        canny_image = cv2.Canny(gray, 0, 30)
-        color_image = cv2.merge([canny_image, canny_image, canny_image])
+        img_r = cv2.Canny(cv_image[:,:,0], threshold1=50, threshold2=150)
+        img_g = cv2.Canny(cv_image[:,:,1], threshold1=50, threshold2=150)
+        img_b = cv2.Canny(cv_image[:,:,2], threshold1=50, threshold2=150)
+
+        color_image = cv2.merge([img_r, img_g, img_b])
+
         qImg = QImage(color_image.data, color_image.shape[1], color_image.shape[0], color_image.strides[0], QImage.Format_RGB888)
         qImg.invertPixels()
         self.label.setPixmap(QPixmap.fromImage(qImg))
