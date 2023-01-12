@@ -112,17 +112,19 @@ class Canvas(QWidget):
     
     def findBorder(self):
         pixmapAsImage = self.label.pixmap().toImage()
-        temp = pixmapAsImage.bits()
+        width, height = pixmapAsImage.width(), pixmapAsImage.height()
+        bytes_per_pixel = pixmapAsImage.depth() // 8
+        temp = pixmapAsImage.constBits()
         temp.setsize(pixmapAsImage.byteCount())
-        cv_image = np.array(temp).reshape(pixmapAsImage.height(), pixmapAsImage.width(), 4) 
-        img_r = cv2.Canny(cv_image[:,:,0], threshold1=50, threshold2=150)
-        img_g = cv2.Canny(cv_image[:,:,1], threshold1=50, threshold2=150)
-        img_b = cv2.Canny(cv_image[:,:,2], threshold1=50, threshold2=150)
-
-        color_image = cv2.merge([img_r, img_g, img_b])
-
-        qImg = QImage(color_image.data, color_image.shape[1], color_image.shape[0], color_image.strides[0], QImage.Format_RGB888)
-        qImg.invertPixels()
+        cv_image = np.array(temp).reshape(height, width, bytes_per_pixel)
+        gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
+        canny_image = cv2.Canny(gray, 0, 30)
+        contours, _ = cv2.findContours(canny_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        cv2.drawContours(cv_image, contours, -1, (0, 255, 0), 2)
+        cv2.imwrite("EGIO.png", cv_image)
+        # Something is wrong when I convert back. I checked if the cv image seemed right and
+        # did an imwrite and it all looks good so something is wrong with converting it back to a QImage
+        qImg = QImage(cv_image.tobytes(), cv_image.shape[1], cv_image.shape[0], QImage.Format_RGB888)
         self.label.setPixmap(QPixmap.fromImage(qImg))
         self.update()
     
