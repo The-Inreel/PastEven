@@ -5,6 +5,9 @@ from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtGui import QPixmap, QImage
 from enum import Enum
 
+from PIL import ImageQt 
+from PIL import Image
+
 import cv2
 import numpy as np
 
@@ -120,20 +123,16 @@ class Canvas(QWidget):
         gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
         canny_image = cv2.Canny(gray, 0, 100)
         contours, _ = cv2.findContours(canny_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(cv_image, contours, -1, (0, 255, 0), 1)
+        cv2.drawContours(cv_image, contours, -1, (0, 255, 0), 2)
+
         # last number is for offset (MAMA!)
         
-        # This is a crappy way of going about it, but itll do the trick for now till we figure out a fix
-        cv2.imwrite("EGIO.png", cv_image)
-        qImg = QImage("EGIO.png")
+        # cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR) 
+        # no work idk why
 
-        # Something is wrong when I convert back. I checked if the cv image seemed right and
-        # did an imwrite and it all looks good so something is wrong with converting it back to a QImage
-        # L ratio tbh
-        
-        # save the time and delete this, leaving just in case
-        # qImg = QImage(cv_image.data, cv_image.shape[1], cv_image.shape[0], 3 * cv_image.shape[1], QImage.Format_RGB888)
-        self.label.setPixmap(QPixmap.fromImage(qImg))
+        cv2.imwrite("EGIO.png", cv_image) # to test if work
+        PIL_image = Image.fromarray(cv_image)
+        self.label.setPixmap(ImageQt.toqpixmap(PIL_image))
         self.update()
     
 
