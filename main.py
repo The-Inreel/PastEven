@@ -121,17 +121,17 @@ class Canvas(QWidget):
         canny_image = cv2.Canny(gray, 0, 100)
         contours, _ = cv2.findContours(canny_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         cv2.drawContours(cv_image, contours, -1, (0, 255, 0), 1)
-
-        # 2nd to last is for the color
         # last number is for offset (MAMA!)
         
+        # This is a crappy way of going about it, but itll do the trick for now till we figure out a fix
         cv2.imwrite("EGIO.png", cv_image)
         qImg = QImage("EGIO.png")
 
         # Something is wrong when I convert back. I checked if the cv image seemed right and
         # did an imwrite and it all looks good so something is wrong with converting it back to a QImage
+        # L ratio tbh
         
-        # save the time and delete this
+        # save the time and delete this, leaving just in case
         # qImg = QImage(cv_image.data, cv_image.shape[1], cv_image.shape[0], 3 * cv_image.shape[1], QImage.Format_RGB888)
         self.label.setPixmap(QPixmap.fromImage(qImg))
         self.update()
