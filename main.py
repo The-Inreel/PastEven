@@ -1,8 +1,8 @@
 import sys
-from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout
-from PyQt5 import QtGui, QtCore
-from PyQt5.QtCore import QSize, Qt
-from PyQt5.QtGui import QPixmap, QImage
+from PyQt6.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout
+from PyQt6 import QtGui, QtCore
+from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtGui import QPixmap, QImage
 from enum import Enum
 
 from PIL import ImageQt 
@@ -39,20 +39,19 @@ class Canvas(QWidget):
                 
     def mouseMoveEvent(self, event):
         if self.last_x is None: # First event.
-            self.last_x = event.x()
-            self.last_y = event.y()
+            self.last_x = event.position().x()
+            self.last_y = event.position().y()
             return # Ignore the first time.
-
         self.drawStroke(event)
         
-        self.last_x = event.x()
-        self.last_y = event.y()
+        self.last_x = event.position().x()
+        self.last_y = event.position().y()
     
     def mousePressEvent(self, event):
         if len(self.pixmap_history) > 30: #20 felt weak so gave them 30, redo is limited by undo
             self.pixmap_history.pop(0)
-        
-        self.pixmap_history.append(self.label.pixmap().copy())
+            
+        self.pixmap_history.append(self.canvas.copy())
         self.pixmap_redohist.clear() #clears redo history if you draw (same as paint3d)
         
     def mouseReleaseEvent(self, event):
@@ -61,40 +60,44 @@ class Canvas(QWidget):
         self.setFocus()
 
     def keyPressEvent(self, event):
-        if event.key() == QtCore.Qt.Key_Q:
-            self.label.pixmap().fill(color = Qt.GlobalColor.white)
+        if event.key() == QtCore.Qt.Key.Key_Q:
+            self.canvas.fill(color = Qt.GlobalColor.white)
+            self.label.setPixmap(self.canvas)
             self.update()
-        elif event.key() == QtCore.Qt.Key_Z and event.modifiers() & Qt.Modifier.CTRL:
+        elif event.key() == QtCore.Qt.Key.Key_Z:
             self.undo()
-        elif event.key() == QtCore.Qt.Key_Y and event.modifiers() & Qt.Modifier.CTRL:
+        elif event.key() == QtCore.Qt.Key.Key_Y:
             self.redo()
-        elif event.key() == QtCore.Qt.Key_P:
+        elif event.key() == QtCore.Qt.Key.Key_P:
             self.findBorder()
 
         event.accept()
         
     def drawStroke(self, event):
-        self.painter = QtGui.QPainter(self.label.pixmap())
-        self.painter.setRenderHint(QtGui.QPainter.RenderHint.HighQualityAntialiasing)
+        self.painter = QtGui.QPainter(self.canvas)
+        self.painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         self.pp.setWidth(self.ppSize)
         self.painter.setPen(self.pp)
         
         # Sets the pen color to the color var if using pencil else it will set to white (erase)
         self.pp.setColor(self.color if self.tools == Tools.PENCIL else QtGui.QColor(255, 255, 255))
-        self.painter.drawLine(self.last_x, self.last_y, event.x(), event.y())
+        self.painter.drawLine(int(self.last_x), int(self.last_y), int(event.position().x()), int(event.position().y()))
         self.painter.end()
+        self.label.setPixmap(self.canvas)
         self.update()
 
     def undo(self):
         if self.pixmap_history:
-            self.pixmap_redohist.append(self.label.pixmap().copy())
-            self.label.setPixmap(self.pixmap_history.pop())
+            self.pixmap_redohist.append(self.canvas.copy())
+            self.canvas = self.pixmap_history.pop()
+            self.label.setPixmap(self.canvas)
             self.update()
 
     def redo(self):
         if self.pixmap_redohist:
-            self.pixmap_history.append(self.label.pixmap().copy())
-            self.label.setPixmap(self.pixmap_redohist.pop())
+            self.pixmap_history.append(self.canvas.copy())
+            self.canvas = self.pixmap_redohist.pop()
+            self.label.setPixmap(self.canvas)
             self.update()
             
     def setTool(self, tool):
@@ -102,11 +105,7 @@ class Canvas(QWidget):
     
     def setPencilSize(self, value):
         self.ppSize = value
-    
-    def temp(self, height, width):
-        self.label.x = height + 200
-        self.label.y = -100000
-    
+
     def sizeHint(self):
         return QSize(1500, 900)
 
@@ -118,21 +117,20 @@ class Canvas(QWidget):
         width, height = pixmapAsImage.width(), pixmapAsImage.height()
         bytes_per_pixel = pixmapAsImage.depth() // 8
         temp = pixmapAsImage.constBits()
-        temp.setsize(pixmapAsImage.byteCount())
+        temp.setsize(pixmapAsImage.sizeInBytes())
         cv_image = np.array(temp).reshape(height, width, bytes_per_pixel)
+        
+        cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
         gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
         canny_image = cv2.Canny(gray, 0, 100)
+                
         contours, _ = cv2.findContours(canny_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(cv_image, contours, -1, (0, 255, 0), 2)
-
+        cv2.drawContours(cv_image, contours, -1, (0, 255, 0), -199)
+        
         # last number is for offset (MAMA!)
         
-        # cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR) 
-        # no work idk why
-
-        cv2.imwrite("EGIO.png", cv_image) # to test if work
         PIL_image = Image.fromarray(cv_image)
-        self.label.setPixmap(ImageQt.toqpixmap(PIL_image))
+        self.label.setPixmap(QPixmap.fromImage((ImageQt.toqimage(PIL_image)).rgbSwapped()))
         self.update()
     
 
@@ -226,7 +224,7 @@ class MainWindow(QMainWindow):
         # self.setCentralWidget(self.layout)
         self.addToolBar(self.toolBar)
         self.layout.addWidget(self.canvas)
-        self.layout.setAlignment(self.canvas, Qt.AlignCenter)
+        self.layout.setAlignment(self.canvas, Qt.AlignmentFlag.AlignHCenter)
         self.setCentralWidget(QWidget(self))
         self.centralWidget().setLayout(self.layout)
         
@@ -248,15 +246,8 @@ class MainWindow(QMainWindow):
         elif val < self.historySlider.value():
             self.canvas.redo()
 
-    def resizeEvent(self, event):
-        print("DETECTED")
-        self.canvas.temp(event.size().height(), event.size().width())
-        print("self.canvas.size ", self.canvas.size)
-        
-
-
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
