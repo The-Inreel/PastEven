@@ -1,8 +1,8 @@
 import sys
-from PyQt6.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout
+from PyQt6.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout, QFileDialog
 from PyQt6 import QtGui, QtCore
 from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtGui import QPixmap, QImage
+from PyQt6.QtGui import QPixmap, QImage, QKeySequence
 from enum import Enum
 
 from PIL import ImageQt 
@@ -36,7 +36,7 @@ class Canvas(QWidget):
         self.pp = QtGui.QPen(Qt.GlobalColor.black, self.ppSize, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
         self.pp.setBrush(self.brush)
         
-                
+         
     def mouseMoveEvent(self, event):
         if self.last_x is None: # First event.
             self.last_x = event.position().x()
@@ -48,11 +48,7 @@ class Canvas(QWidget):
         self.last_y = event.position().y()
     
     def mousePressEvent(self, event):
-        if len(self.pixmap_history) > 30: #20 felt weak so gave them 30, redo is limited by undo
-            self.pixmap_history.pop(0)
-            
-        self.pixmap_history.append(self.canvas.copy())
-        self.pixmap_redohist.clear() #clears redo history if you draw (same as paint3d)
+        self.addUndo()
         
     def mouseReleaseEvent(self, event):
         self.last_x = None
@@ -64,10 +60,6 @@ class Canvas(QWidget):
             self.canvas.fill(color = Qt.GlobalColor.white)
             self.label.setPixmap(self.canvas)
             self.update()
-        elif event.key() == QtCore.Qt.Key.Key_Z:
-            self.undo()
-        elif event.key() == QtCore.Qt.Key.Key_Y:
-            self.redo()
         elif event.key() == QtCore.Qt.Key.Key_P:
             self.findBorder()
 
@@ -85,6 +77,13 @@ class Canvas(QWidget):
         self.painter.end()
         self.label.setPixmap(self.canvas)
         self.update()
+        
+    def addUndo(self):
+        if len(self.pixmap_history) > 30: #20 felt weak so gave them 30, redo is limited by undo
+            self.pixmap_history.pop(0)
+            
+        self.pixmap_history.append(self.canvas.copy())
+        self.pixmap_redohist.clear()
 
     def undo(self):
         if self.pixmap_history:
@@ -111,6 +110,18 @@ class Canvas(QWidget):
 
     def save(self):
         self.label.pixmap().toImage().save("saves\pastEven.png")
+        
+    def load(self):
+        self.addUndo()
+        path = self.open_file_dialog()
+        if path != "":
+            self.canvas = QtGui.QPixmap(path)
+            self.label.setPixmap(self.canvas)
+            self.update()
+        
+    def open_file_dialog(self):
+        file_name, _ = QFileDialog.getOpenFileName(self, 'Load Image', "./")
+        return file_name
     
     def findBorder(self):
         pixmapAsImage = self.label.pixmap().toImage()
@@ -130,9 +141,9 @@ class Canvas(QWidget):
         # last number is for offset (MAMA!)
         
         PIL_image = Image.fromarray(cv_image)
+        # DO NOT REMOVE THE SECOND RGB SWAP IT WILL EXPLODE PLEASE DONT I DONT WANT TO ACTUALLY DEBUG
         self.label.setPixmap(QPixmap.fromImage((ImageQt.toqimage(PIL_image)).rgbSwapped().rgbSwapped()))
         self.update()
-    
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -154,7 +165,7 @@ class MainWindow(QMainWindow):
         self.toolBar.addWidget(saveButton)
 
         loadButton = QPushButton("Load")
-        loadButton.clicked.connect(self.canvas.save)
+        loadButton.clicked.connect(self.canvas.load)
         loadButton.setIcon(QtGui.QIcon("resources/icons/load.png"))
         self.toolBar.addWidget(loadButton)
 
@@ -163,10 +174,12 @@ class MainWindow(QMainWindow):
         # Add buttons to toolbar - undo and redo respectively
         undoButton = QPushButton("Undo")
         undoButton.clicked.connect(self.canvas.undo)
+        undoButton.setShortcut('Ctrl+Z')
         self.toolBar.addWidget(undoButton)
 
         redoButton = QPushButton("Redo")
         redoButton.clicked.connect(self.canvas.redo)
+        redoButton.setShortcut('Ctrl+Y')
         self.toolBar.addWidget(redoButton)
         
         self.toolBar.addSeparator()
