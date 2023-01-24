@@ -125,12 +125,12 @@ class Canvas(QWidget):
         canny_image = cv2.Canny(gray, 0, 100)
                 
         contours, _ = cv2.findContours(canny_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(cv_image, contours, -1, (0, 255, 0), -199)
+        cv2.drawContours(cv_image, contours, -1, (0, 0, 0), -199)
         
         # last number is for offset (MAMA!)
         
         PIL_image = Image.fromarray(cv_image)
-        self.label.setPixmap(QPixmap.fromImage((ImageQt.toqimage(PIL_image)).rgbSwapped()))
+        self.label.setPixmap(QPixmap.fromImage((ImageQt.toqimage(PIL_image)).rgbSwapped().rgbSwapped()))
         self.update()
     
 
