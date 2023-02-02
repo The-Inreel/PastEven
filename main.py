@@ -66,13 +66,13 @@ class Canvas(QWidget):
         event.accept()
         
     def drawStroke(self, event):
-        self.painter = QtGui.QPainter(self.canvas)
-        self.painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
-        self.pp.setWidth(self.ppSize)
-        self.painter.setPen(self.pp)
-        
         # Sets the pen color to the color var if using pencil else it will set to white (erase)
         self.pp.setColor(self.color if self.tools == Tools.PENCIL else QtGui.QColor(255, 255, 255))
+        self.pp.setWidth(self.ppSize)
+        self.painter = QtGui.QPainter(self.canvas)
+        self.painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+        self.painter.setPen(self.pp)
+        
         self.painter.drawLine(int(self.last_x), int(self.last_y), int(event.position().x()), int(event.position().y()))
         self.painter.end()
         self.label.setPixmap(self.canvas)
