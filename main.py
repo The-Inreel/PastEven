@@ -156,6 +156,10 @@ class MainWindow(QMainWindow):
         
         self.toolBar = QToolBar()
         self.canvas = Canvas()
+        # Attempted to make a spacer may change tho
+        self.spacerT = QWidget()
+        self.spacerT.setFixedWidth(100)
+        self.spacerT.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         self.setStyleSheet("background: #E0FFFF")
 
@@ -205,8 +209,6 @@ class MainWindow(QMainWindow):
         self.sizeSlider.setMaximum(100)
         self.sizeSlider.setValue(4)
         self.toolBar.addWidget(self.sizeSlider)
-        
-        self.toolBar.addSeparator()
 
         self.historySlider = QSlider()
         self.historySlider.setMinimum(0)
@@ -217,10 +219,12 @@ class MainWindow(QMainWindow):
         
         self.sizeLabel = QLabel(str(self.canvas.ppSize))
         self.toolBar.addWidget(self.sizeLabel)
+        self.toolBar.addSeparator()
 
         # added spacer to use text - improve later when i know how to like actually change the spacing
         # p.s. we should probably use some kind of organizer like a vbox or whatever its called
-        self.spacer = QLabel("                                                                               History:        ")
+        self.toolBar.addWidget(self.spacerT)
+        self.spacer = QLabel("History:        ")
         self.toolBar.addWidget(self.spacer)
 
         # gave toolbar bit of color so we can see
