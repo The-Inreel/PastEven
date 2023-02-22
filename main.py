@@ -166,13 +166,21 @@ class MainWindow(QMainWindow):
         saveButton = QPushButton("Save")
         saveButton.clicked.connect(self.canvas.save)
         saveButton.setIcon(QtGui.QIcon("resources/icons/save.png"))
+        saveButton.setShortcut('Ctrl+S')
         self.toolBar.addWidget(saveButton)
 
         loadButton = QPushButton("Load")
         loadButton.clicked.connect(self.canvas.load)
         loadButton.setIcon(QtGui.QIcon("resources/icons/load.png"))
+        loadButton.setShortcut('Ctrl+L')
         self.toolBar.addWidget(loadButton)
 
+        borderButton = QPushButton("Border")
+        borderButton.clicked.connect(self.canvas.findBorder)
+        borderButton.setIcon(QtGui.QIcon("resources/icons/border.png"))
+        borderButton.setShortcut('Ctrl+P')
+        self.toolBar.addWidget(borderButton)
+        
         self.toolBar.addSeparator()
 
         # Add buttons to toolbar - undo and redo respectively
