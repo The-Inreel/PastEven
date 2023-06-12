@@ -1,8 +1,10 @@
 import sys
+import os
+
 from PyQt6.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout, QFileDialog
 from PyQt6 import QtGui, QtCore
 from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtGui import QPixmap, QImage, QKeySequence
+from PyQt6.QtGui import QPixmap
 from enum import Enum
 
 from PIL import ImageQt 
@@ -14,7 +16,6 @@ import numpy as np
 class Tools(Enum):
     PENCIL = 1
     ERASER = 2
-
 
 class Canvas(QWidget):
     def __init__(self, parent=None):
@@ -35,6 +36,7 @@ class Canvas(QWidget):
         self.brush = QtGui.QBrush(Qt.GlobalColor.black, Qt.BrushStyle.SolidPattern)
         self.pp = QtGui.QPen(Qt.GlobalColor.black, self.ppSize, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
         self.pp.setBrush(self.brush)
+        self.saveLoc = None
         
          
     def mouseMoveEvent(self, event):
@@ -109,19 +111,37 @@ class Canvas(QWidget):
         return QSize(1500, 900)
 
     def save(self):
-        self.label.pixmap().toImage().save("saves\pastEven.png")
+        if self.saveLoc is None:
+            path = self.save_file_dialog()
+            if path != "":
+                self.saveLoc = path
+                self.label.pixmap().toImage().save(path)
+        else:
+            self.label.pixmap().toImage().save(self.saveLoc)
         
     def load(self):
         self.addUndo()
         path = self.open_file_dialog()
         if path != "":
             self.canvas = QtGui.QPixmap(path)
+            self.saveLoc = path
             self.label.setPixmap(self.canvas)
             self.update()
         
     def open_file_dialog(self):
         file_name, _ = QFileDialog.getOpenFileName(self, 'Load Image', "./")
         return file_name
+    
+    def save_file_dialog(self):
+        file_name, _ = QFileDialog.getSaveFileName(self, 'Save Image', "./", "Image (*.png)")
+        if not self.has_image_extension(file_name):
+            file_name + ".png"
+        return file_name
+    
+    def has_image_extension(self, file_name):
+        image_extensions = ['.png', '.jpeg', '.jpg']
+        file_extension = os.path.splitext(file_name)[1].lower()
+        return file_extension in image_extensions
     
     def findBorder(self):
         pixmapAsImage = self.label.pixmap().toImage()
