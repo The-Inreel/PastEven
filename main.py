@@ -164,6 +164,8 @@ class Canvas(QWidget):
         # DO NOT REMOVE THE SECOND RGB SWAP IT WILL EXPLODE PLEASE DONT I DONT WANT TO ACTUALLY DEBUG
         self.label.setPixmap(QPixmap.fromImage((ImageQt.toqimage(PIL_image)).rgbSwapped().rgbSwapped()))
         self.update()
+        self.addUndo()
+        self.canvas = self.label.pixmap()
 
 class MainWindow(QMainWindow):
     def __init__(self):
