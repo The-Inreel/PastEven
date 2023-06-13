@@ -156,11 +156,19 @@ class Canvas(QWidget):
         canny_image = cv2.Canny(gray, 0, 100)
                 
         contours, _ = cv2.findContours(canny_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(cv_image, contours, -1, (0, 0, 0), -199)
+        cv2.drawContours(cv_image, contours, -1, (0, 0, 0), thickness = -1)
         
-        # last number is for offset (MAMA!)
+        # This was an idea to increase the size of the border whenever the pen size is large enough
+        # cv2.drawContours(cv_image, contours, -1, (0, 0, 0), thickness = (self.ppSize // 30) + 1)
         
-        PIL_image = Image.fromarray(cv_image)
+        
+        # last number is for offset (MAMA!) 
+        # L youre wrong it was the thickness get better - Ethan
+        
+        blurred_image = cv_image.copy()
+        blurred_image[canny_image != 0] = cv2.GaussianBlur(blurred_image[canny_image != 0], (15, 15), 1)
+    
+        PIL_image = Image.fromarray(blurred_image)
         # DO NOT REMOVE THE SECOND RGB SWAP IT WILL EXPLODE PLEASE DONT I DONT WANT TO ACTUALLY DEBUG
         self.label.setPixmap(QPixmap.fromImage((ImageQt.toqimage(PIL_image)).rgbSwapped().rgbSwapped()))
         self.update()
