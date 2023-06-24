@@ -1,17 +1,14 @@
-import sys
-import os
-
 from PyQt6.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout, QFileDialog
-from PyQt6 import QtGui, QtCore
+from PyQt6.QtGui import QPixmap, QIcon
 from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtGui import QPixmap
+from PyQt6 import QtGui, QtCore
+
 from enum import Enum
-
-from PIL import ImageQt 
-from PIL import Image
-
+from PIL import ImageQt, Image
 import cv2
 import numpy as np
+import sys
+import os
 
 class Tools(Enum):
     PENCIL = 1
@@ -44,6 +41,7 @@ class Canvas(QWidget):
             self.last_x = event.position().x()
             self.last_y = event.position().y()
             return # Ignore the first time.
+        
         self.drawStroke(event)
         
         self.last_x = event.position().x()
@@ -51,6 +49,9 @@ class Canvas(QWidget):
     
     def mousePressEvent(self, event):
         self.addUndo()
+        self.last_x = event.position().x()
+        self.last_y = event.position().y()
+        self.drawDot(event)
         
     def mouseReleaseEvent(self, event):
         self.last_x = None
@@ -76,6 +77,18 @@ class Canvas(QWidget):
         self.painter.setPen(self.pp)
         
         self.painter.drawLine(int(self.last_x), int(self.last_y), int(event.position().x()), int(event.position().y()))
+        self.painter.end()
+        self.label.setPixmap(self.canvas)
+        self.update()
+        
+    def drawDot(self, event):
+        self.pp.setColor(self.color if self.tools == Tools.PENCIL else QtGui.QColor(255, 255, 255))
+        self.pp.setWidth(self.ppSize)
+        self.painter = QtGui.QPainter(self.canvas)
+        self.painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+        self.painter.setPen(self.pp)
+
+        self.painter.drawPoint(int(event.position().x()), int(event.position().y()))
         self.painter.end()
         self.label.setPixmap(self.canvas)
         self.update()
@@ -113,7 +126,7 @@ class Canvas(QWidget):
     def save(self):
         if self.saveLoc is None:
             path = self.save_file_dialog()
-            if path != "":
+            if path:
                 self.saveLoc = path
                 self.label.pixmap().toImage().save(path)
         else:
@@ -122,7 +135,7 @@ class Canvas(QWidget):
     def load(self):
         self.addUndo()
         path = self.open_file_dialog()
-        if path != "":
+        if path:
             self.canvas = QtGui.QPixmap(path)
             self.saveLoc = path
             self.label.setPixmap(self.canvas)
