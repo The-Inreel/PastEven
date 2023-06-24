@@ -1,155 +1,18 @@
-import sys
-from PyQt6.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout, QFileDialog
-from PyQt6 import QtGui, QtCore
+from PyQt6.QtWidgets import QMainWindow, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout
+from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtGui import QPixmap, QImage, QKeySequence
-from enum import Enum
+from PyQt6 import QtGui, QtCore
 
-from PIL import ImageQt 
-from PIL import Image
-
-import cv2
-import numpy as np
-
-class Tools(Enum):
-    PENCIL = 1
-    ERASER = 2
-
-
-class Canvas(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.label = QLabel(self)
-    
-        # Set canvas settings
-        self.canvas = QPixmap(1500, 900)
-        self.canvas.fill(color = Qt.GlobalColor.white)
-        self.last_x, self.last_y = None, None
-        self.label.setPixmap(self.canvas)
-        self.pixmap_history = []
-        self.pixmap_redohist = []
-        self.tools = Tools.PENCIL
-        self.color = QtGui.QColor(255, 0, 0)
-        self.painter = None
-        self.ppSize = 4
-        self.brush = QtGui.QBrush(Qt.GlobalColor.black, Qt.BrushStyle.SolidPattern)
-        self.pp = QtGui.QPen(Qt.GlobalColor.black, self.ppSize, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
-        self.pp.setBrush(self.brush)
-        
-         
-    def mouseMoveEvent(self, event):
-        if self.last_x is None: # First event.
-            self.last_x = event.position().x()
-            self.last_y = event.position().y()
-            return # Ignore the first time.
-        self.drawStroke(event)
-        
-        self.last_x = event.position().x()
-        self.last_y = event.position().y()
-    
-    def mousePressEvent(self, event):
-        self.addUndo()
-        
-    def mouseReleaseEvent(self, event):
-        self.last_x = None
-        self.last_y = None
-        self.setFocus()
-
-    def keyPressEvent(self, event):
-        if event.key() == QtCore.Qt.Key.Key_Q:
-            self.canvas.fill(color = Qt.GlobalColor.white)
-            self.label.setPixmap(self.canvas)
-            self.update()
-        elif event.key() == QtCore.Qt.Key.Key_P:
-            self.findBorder()
-
-        event.accept()
-        
-    def drawStroke(self, event):
-        # Sets the pen color to the color var if using pencil else it will set to white (erase)
-        self.pp.setColor(self.color if self.tools == Tools.PENCIL else QtGui.QColor(255, 255, 255))
-        self.pp.setWidth(self.ppSize)
-        self.painter = QtGui.QPainter(self.canvas)
-        self.painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
-        self.painter.setPen(self.pp)
-        
-        self.painter.drawLine(int(self.last_x), int(self.last_y), int(event.position().x()), int(event.position().y()))
-        self.painter.end()
-        self.label.setPixmap(self.canvas)
-        self.update()
-        
-    def addUndo(self):
-        if len(self.pixmap_history) > 30: #20 felt weak so gave them 30, redo is limited by undo
-            self.pixmap_history.pop(0)
-            
-        self.pixmap_history.append(self.canvas.copy())
-        self.pixmap_redohist.clear()
-
-    def undo(self):
-        if self.pixmap_history:
-            self.pixmap_redohist.append(self.canvas.copy())
-            self.canvas = self.pixmap_history.pop()
-            self.label.setPixmap(self.canvas)
-            self.update()
-
-    def redo(self):
-        if self.pixmap_redohist:
-            self.pixmap_history.append(self.canvas.copy())
-            self.canvas = self.pixmap_redohist.pop()
-            self.label.setPixmap(self.canvas)
-            self.update()
-            
-    def setTool(self, tool):
-        self.tools = tool
-    
-    def setPencilSize(self, value):
-        self.ppSize = value
-
-    def sizeHint(self):
-        return QSize(1500, 900)
-
-    def save(self):
-        self.label.pixmap().toImage().save("saves\pastEven.png")
-        
-    def load(self):
-        self.addUndo()
-        path = self.open_file_dialog()
-        if path != "":
-            self.canvas = QtGui.QPixmap(path)
-            self.label.setPixmap(self.canvas)
-            self.update()
-        
-    def open_file_dialog(self):
-        file_name, _ = QFileDialog.getOpenFileName(self, 'Load Image', "./")
-        return file_name
-    
-    def findBorder(self):
-        pixmapAsImage = self.label.pixmap().toImage()
-        width, height = pixmapAsImage.width(), pixmapAsImage.height()
-        bytes_per_pixel = pixmapAsImage.depth() // 8
-        temp = pixmapAsImage.constBits()
-        temp.setsize(pixmapAsImage.sizeInBytes())
-        cv_image = np.array(temp).reshape(height, width, bytes_per_pixel)
-        
-        cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
-        gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
-        canny_image = cv2.Canny(gray, 0, 100)
-                
-        contours, _ = cv2.findContours(canny_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(cv_image, contours, -1, (0, 0, 0), -199)
-        
-        # last number is for offset (MAMA!)
-        
-        PIL_image = Image.fromarray(cv_image)
-        # DO NOT REMOVE THE SECOND RGB SWAP IT WILL EXPLODE PLEASE DONT I DONT WANT TO ACTUALLY DEBUG
-        self.label.setPixmap(QPixmap.fromImage((ImageQt.toqimage(PIL_image)).rgbSwapped().rgbSwapped()))
-        self.update()
+from canvas import Canvas, Tools
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
     
         self.setWindowTitle("PastEven")
+        
+        # TODO: Make Icon
+        self.setWindowIcon(QIcon("resources/pencil.png"))
         self.setMinimumSize(QSize(1500, 1000))
 
         self.layout = QVBoxLayout()
@@ -270,9 +133,3 @@ class MainWindow(QMainWindow):
             self.canvas.undo()
         elif val < self.historySlider.value():
             self.canvas.redo()
-
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec())
