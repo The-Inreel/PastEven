@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QWidget, QLabel, QFileDialog
 from PyQt6.QtGui import QPixmap
-from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtCore import QSize, Qt, pyqtSignal
 from PyQt6 import QtGui, QtCore
 
 from enum import Enum
@@ -14,6 +14,9 @@ class Tools(Enum):
     ERASER = 2
 
 class Canvas(QWidget):
+    
+    clicked = pyqtSignal()
+    
     def __init__(self, parent=None):
         super().__init__(parent)
         self.label = QLabel(self)
@@ -56,6 +59,7 @@ class Canvas(QWidget):
         self.last_x = None
         self.last_y = None
         self.setFocus()
+        self.clicked.emit()
 
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key.Key_Q:
@@ -124,7 +128,7 @@ class Canvas(QWidget):
 
     def save(self):
         if self.saveLoc is None:
-            path = self.save_file_dialog()
+            path = self.saveFileDialog()
             if path:
                 self.saveLoc = path
                 self.label.pixmap().toImage().save(path)
@@ -133,24 +137,24 @@ class Canvas(QWidget):
         
     def load(self):
         self.addUndo()
-        path = self.open_file_dialog()
+        path = self.openFileDialog()
         if path:
             self.canvas = QtGui.QPixmap(path)
             self.saveLoc = path
             self.label.setPixmap(self.canvas)
             self.update()
         
-    def open_file_dialog(self):
+    def openFileDialog(self):
         file_name, _ = QFileDialog.getOpenFileName(self, 'Load Image', "./")
         return file_name
     
-    def save_file_dialog(self):
+    def saveFileDialog(self):
         file_name, _ = QFileDialog.getSaveFileName(self, 'Save Image', "./", "Image (*.png)")
-        if not self.has_image_extension(file_name):
+        if not self.hasImgExt(file_name):
             file_name + ".png"
         return file_name
     
-    def has_image_extension(self, file_name):
+    def hasImgExt(self, file_name):
         image_extensions = ['.png', '.jpeg', '.jpg']
         file_extension = os.path.splitext(file_name)[1].lower()
         return file_extension in image_extensions

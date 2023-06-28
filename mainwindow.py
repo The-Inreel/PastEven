@@ -19,6 +19,7 @@ class MainWindow(QMainWindow):
         
         self.toolBar = QToolBar()
         self.canvas = Canvas()
+        self.canvas.clicked.connect(self.moveSlider)
         # Attempted to make a spacer may change tho
         self.spacerT = QWidget()
         self.spacerT.setFixedWidth(100)
@@ -49,11 +50,13 @@ class MainWindow(QMainWindow):
         # Add buttons to toolbar - undo and redo respectively
         undoButton = QPushButton("Undo")
         undoButton.clicked.connect(self.canvas.undo)
+        undoButton.clicked.connect(lambda: self.historySlider.setValue(self.historySlider.value() + 1))
         undoButton.setShortcut('Ctrl+Z')
         self.toolBar.addWidget(undoButton)
 
         redoButton = QPushButton("Redo")
         redoButton.clicked.connect(self.canvas.redo)
+        redoButton.clicked.connect(lambda: self.historySlider.setValue(self.historySlider.value() - 1))
         redoButton.setShortcut('Ctrl+Y')
         self.toolBar.addWidget(redoButton)
         
@@ -82,11 +85,13 @@ class MainWindow(QMainWindow):
         self.toolBar.addWidget(self.sizeSlider)
 
         self.historySlider = QSlider()
-        self.historySlider.setMinimum(0)
-        self.historySlider.setMaximum(len(self.canvas.pixmap_history) - 1)
-        self.historySlider.setValue(len(self.canvas.pixmap_history) - 1)
         self.historySlider.setOrientation(QtCore.Qt.Orientation.Horizontal)
+        self.historySlider.setInvertedAppearance(True)
+        self.historySlider.setMinimum(0)
+        self.historySlider.setMaximum(1)
         self.historySlider.setMaximumWidth(400)
+        self.historySlider.setEnabled(False)
+        self.historySlider.setValue(0)        
         
         self.sizeLabel = QLabel(str(self.canvas.ppSize))
         self.toolBar.addWidget(self.sizeLabel)
@@ -133,3 +138,16 @@ class MainWindow(QMainWindow):
             self.canvas.undo()
         elif val < self.historySlider.value():
             self.canvas.redo()
+            
+    def moveSlider(self):
+        if not self.historySlider.isEnabled():
+            self.historySlider.setEnabled(True)
+        if self.historySlider.value() == self.historySlider.maximum():
+            self.historySlider.setMaximum(len(self.canvas.pixmap_history))
+            self.historySlider.setValue(len(self.canvas.pixmap_history))
+        else:
+            self.historySlider.setMaximum(len(self.canvas.pixmap_history))
+    
+        
+        
+            
