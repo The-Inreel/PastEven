@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QMainWindow, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout, QButtonGroup
+from PySide6.QtWidgets import QMainWindow, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout, QButtonGroup, QLineEdit
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import QSize, Qt
 from PySide6 import QtGui, QtCore
@@ -98,9 +98,18 @@ class MainWindow(QMainWindow):
         self.historySlider.setEnabled(False)
         self.historySlider.setValue(0)        
         
-        self.sizeLabel = QLabel(str(self.canvas.ppSize))
-        self.toolBar.addWidget(self.sizeLabel)
-        self.toolBar.addSeparator()
+        
+        # Now you can edit the pen size with a text box woo
+        self.ppSizeBox = QLineEdit()
+        self.ppSizeBox.setText(str(self.canvas.ppSize))
+        self.ppSizeBox.textChanged.connect(self.sizeTextChanged)
+        self.ppSizeBox.setMaximumWidth(40)
+        self.toolBar.addWidget(self.ppSizeBox)
+        
+        # L Old Code
+        # self.sizeLabel = QLabel(str(self.canvas.ppSize))
+        # self.toolBar.addWidget(self.sizeLabel)
+        # self.toolBar.addSeparator()
 
         # added spacer to use text - improve later when i know how to like actually change the spacing
         # p.s. we should probably use some kind of organizer like a vbox or whatever its called
@@ -115,7 +124,7 @@ class MainWindow(QMainWindow):
         # prevents hiding toolbar cuz if you remove it, you can't add it back
         
         self.sizeSlider.valueChanged.connect(self.canvas.setPencilSize)
-        self.sizeSlider.valueChanged.connect(lambda value: self.sizeLabel.setText(str(value)))
+        self.sizeSlider.valueChanged.connect(lambda value: self.ppSizeBox.setText(str(value)))
         self.historySlider.sliderMoved.connect(self.actionTriggered)
 
         # Added the label as a central widget instead of the whole thing, and added the toolbar
@@ -133,6 +142,19 @@ class MainWindow(QMainWindow):
                 btn.setChecked(False)
             else:
                 btn.setChecked(True)
+                
+    def sizeTextChanged(self, text):
+        try:
+            value = int(text)
+            if value > 100:
+                self.ppSizeBox.setText('100')
+                self.sizeSlider.setValue(100)
+            else:
+                self.sizeSlider.setValue(value)
+        except ValueError:
+            self.ppSizeBox.clear()
+
+        self.ppSizeBox.setText(f"{self.sizeSlider.value()}")
     
     def mousePressEvent(self, event):
         self.historySlider.setMaximum(len(self.canvas.pixmap_history) - 1)
@@ -153,7 +175,3 @@ class MainWindow(QMainWindow):
             self.historySlider.setValue(len(self.canvas.pixmap_history))
         else:
             self.historySlider.setMaximum(len(self.canvas.pixmap_history))
-    
-        
-        
-            
