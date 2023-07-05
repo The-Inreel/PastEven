@@ -1,7 +1,7 @@
-from PyQt6.QtWidgets import QMainWindow, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout
-from PyQt6.QtGui import QIcon
-from PyQt6.QtCore import QSize, Qt
-from PyQt6 import QtGui, QtCore
+from PySide6.QtWidgets import QMainWindow, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout
+from PySide6.QtGui import QIcon
+from PySide6.QtCore import QSize, Qt
+from PySide6 import QtGui, QtCore
 
 from canvas import Canvas, Tools
 
