@@ -1,7 +1,7 @@
-from PyQt6.QtWidgets import QWidget, QLabel, QFileDialog
-from PyQt6.QtGui import QPixmap
-from PyQt6.QtCore import QSize, Qt, pyqtSignal
-from PyQt6 import QtGui, QtCore
+from PySide6.QtWidgets import QWidget, QLabel, QFileDialog
+from PySide6.QtGui import QPixmap
+from PySide6.QtCore import QSize, Qt, Signal
+from PySide6 import QtGui, QtCore
 
 from enum import Enum
 from PIL import ImageQt, Image
@@ -15,7 +15,7 @@ class Tools(Enum):
 
 class Canvas(QWidget):
     
-    clicked = pyqtSignal()
+    clicked = Signal()
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -23,7 +23,7 @@ class Canvas(QWidget):
     
         # Set canvas settings
         self.canvas = QPixmap(1500, 900)
-        self.canvas.fill(color = Qt.GlobalColor.white)
+        self.canvas.fill(fillColor = Qt.GlobalColor.white)
         self.last_x, self.last_y = None, None
         self.label.setPixmap(self.canvas)
         self.pixmap_history = []
@@ -163,8 +163,10 @@ class Canvas(QWidget):
         pixmapAsImage = self.label.pixmap().toImage()
         width, height = pixmapAsImage.width(), pixmapAsImage.height()
         bytes_per_pixel = pixmapAsImage.depth() // 8
-        temp = pixmapAsImage.constBits()
-        temp.setsize(pixmapAsImage.sizeInBytes())
+        temp = bytearray(pixmapAsImage.bits())
+        temp = memoryview(temp)
+        temp = temp.cast('B')
+        temp = temp[:pixmapAsImage.sizeInBytes()]
         cv_image = np.array(temp).reshape(height, width, bytes_per_pixel)
         
         cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
@@ -172,7 +174,7 @@ class Canvas(QWidget):
         canny_image = cv2.Canny(gray, 0, 100)
                 
         contours, _ = cv2.findContours(canny_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(cv_image, contours, -1, (0, 0, 0), thickness = -1)
+        cv2.drawContours(cv_image, contours, -1, (0, 0, 0), thickness=-1)
         
         # This was an idea to increase the size of the border whenever the pen size is large enough
         # cv2.drawContours(cv_image, contours, -1, (0, 0, 0), thickness = (self.ppSize // 30) + 1)

@@ -1,7 +1,7 @@
-from PyQt6.QtWidgets import QMainWindow, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout
-from PyQt6.QtGui import QIcon
-from PyQt6.QtCore import QSize, Qt
-from PyQt6 import QtGui, QtCore
+from PySide6.QtWidgets import QMainWindow, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout, QButtonGroup
+from PySide6.QtGui import QIcon
+from PySide6.QtCore import QSize, Qt
+from PySide6 import QtGui, QtCore
 
 from canvas import Canvas, Tools
 
@@ -62,6 +62,8 @@ class MainWindow(QMainWindow):
         
         self.toolBar.addSeparator()
         
+        self.toolButtons = QButtonGroup()
+        
         pencilButton = QPushButton()
         pencilButton.clicked.connect(lambda: self.canvas.setTool(Tools.PENCIL))
         pencilButton.setIcon(QtGui.QIcon("resources/icons/pencil.png"))
@@ -75,8 +77,11 @@ class MainWindow(QMainWindow):
         eraserButton.setCheckable(True)
         self.toolBar.addWidget(eraserButton)
         
-        pencilButton.clicked.connect(lambda: self.toolButtonClicked(eraserButton))
-        eraserButton.clicked.connect(lambda: self.toolButtonClicked(pencilButton))
+        self.toolButtons.addButton(pencilButton)
+        self.toolButtons.addButton(eraserButton)
+        
+        pencilButton.clicked.connect(self.toolButtonClicked)
+        eraserButton.clicked.connect(self.toolButtonClicked)
         
         self.sizeSlider = QSlider()
         self.sizeSlider.setMinimum(1)
@@ -121,12 +126,13 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(QWidget(self))
         self.centralWidget().setLayout(self.layout)
         
-    # When more tools come change other tools to a list or something idk
-    # Rn it just toggles the button use when clicked more of a visual thing
-    def toolButtonClicked(self, otherTools):
-        sender = self.sender()
-        sender.setChecked(True)
-        otherTools.setChecked(False)
+    # Toggles between buttons in the tool group ez
+    def toolButtonClicked(self, button):
+        for btn in self.toolButtons.buttons():
+            if btn != button:
+                btn.setChecked(False)
+            else:
+                btn.setChecked(True)
     
     def mousePressEvent(self, event):
         self.historySlider.setMaximum(len(self.canvas.pixmap_history) - 1)
