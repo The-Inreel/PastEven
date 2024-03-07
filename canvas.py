@@ -36,11 +36,12 @@ class Canvas(QWidget):
         self.pp.setBrush(self.brush)
         self.saveLoc = None
         
-         
+    # Handles mouse movement drawing
     def mouseMoveEvent(self, event):
         if event.buttons() & Qt.LeftButton and self.last_x is not None:
             self.drawStroke(event.position().x(), event.position().y())
     
+    # Initializes drawing on mouse press
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.addUndo()
@@ -51,7 +52,8 @@ class Canvas(QWidget):
             self.painter.setPen(self.pp)
 
             self.drawDot(event.position().x(), event.position().y())
-        
+    
+    # Finalizes drawing on mouse release
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.painter.end()
@@ -59,6 +61,7 @@ class Canvas(QWidget):
             self.last_y = None
             self.clicked.emit()
 
+    # Clears the canvas on 'Q' key press
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key.Key_Q:
             self.canvas.fill(color = Qt.GlobalColor.white)
@@ -79,7 +82,8 @@ class Canvas(QWidget):
         self.painter.drawPoint(int(x), int(y))
         self.label.setPixmap(self.canvas)
         self.update()
-        
+    
+    # Adds the current state to undo history
     def addUndo(self):
         if len(self.pixmap_history) > 30: #20 felt weak so gave them 30, redo is limited by undo
             self.pixmap_history.pop(0)
@@ -100,7 +104,8 @@ class Canvas(QWidget):
             self.canvas = self.pixmap_redohist.pop()
             self.label.setPixmap(self.canvas)
             self.update()
-            
+    
+    # Sets the current drawing tool (e.g., pencil or eraser)
     def setTool(self, tool):
         self.tools = tool
     
@@ -108,6 +113,7 @@ class Canvas(QWidget):
         self.ppSize = value
         self.pp.setWidth(self.ppSize)
 
+    # Suggests the initial size for the widget
     def sizeHint(self):
         return QSize(1500, 900)
 
@@ -128,7 +134,7 @@ class Canvas(QWidget):
             self.saveLoc = path
             self.label.setPixmap(self.canvas)
             self.update()
-        
+    
     def openFileDialog(self):
         file_name, _ = QFileDialog.getOpenFileName(self, 'Load Image', "./")
         return file_name
@@ -139,11 +145,13 @@ class Canvas(QWidget):
             file_name + ".png"
         return file_name
     
+    # Checks if the file name has a valid image extension
     def hasImgExt(self, file_name):
         image_extensions = ['.png', '.jpeg', '.jpg']
         file_extension = os.path.splitext(file_name)[1].lower()
         return file_extension in image_extensions
     
+    # Detects and adds borders in the current canvas image
     def findBorder(self):
         pixmapAsImage = self.label.pixmap().toImage()
         width, height = pixmapAsImage.width(), pixmapAsImage.height()

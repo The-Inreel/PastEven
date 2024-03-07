@@ -142,7 +142,8 @@ class MainWindow(QMainWindow):
                 btn.setChecked(False)
             else:
                 btn.setChecked(True)
-                
+
+    # Updates the pen size based on input from the pen size text box
     def sizeTextChanged(self, text):
         try:
             value = int(text)
@@ -156,6 +157,7 @@ class MainWindow(QMainWindow):
 
         self.ppSizeBox.setText(f"{self.sizeSlider.value()}")
     
+    # Updates the history slider's maximum value based on the undo history length
     def mousePressEvent(self, event):
         self.historySlider.setMaximum(len(self.canvas.pixmap_history))
 
@@ -166,7 +168,8 @@ class MainWindow(QMainWindow):
             self.canvas.undo()
         elif val < self.historySlider.value():
             self.canvas.redo()
-            
+    
+    # Adjusts the history slider's value and maximum to display the current state of the undo history
     def moveSlider(self):
         if not self.historySlider.isEnabled():
             self.historySlider.setEnabled(True)
