@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QMainWindow, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout, QButtonGroup, QLineEdit
+from PySide6.QtWidgets import QMainWindow, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout, QButtonGroup, QLineEdit, QScrollArea
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import QSize, Qt
 from PySide6 import QtGui, QtCore
@@ -18,8 +18,15 @@ class MainWindow(QMainWindow):
         self.layout = QVBoxLayout()
         
         self.toolBar = QToolBar()
+        
+        self.scrollArea = QScrollArea()
+        
         self.canvas = Canvas()
         self.canvas.clicked.connect(self.moveSlider)
+        self.canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        
+        self.scrollArea.setWidgetResizable(True)
+        self.scrollArea.setWidget(self.canvas)
         # Attempted to make a spacer may change tho
         self.spacerT = QWidget()
         self.spacerT.setFixedWidth(100)
@@ -130,8 +137,8 @@ class MainWindow(QMainWindow):
         # Added the label as a central widget instead of the whole thing, and added the toolbar
         # self.setCentralWidget(self.layout)
         self.addToolBar(self.toolBar)
-        self.layout.addWidget(self.canvas)
-        self.layout.setAlignment(self.canvas, Qt.AlignmentFlag.AlignHCenter)
+        self.layout.addWidget(self.scrollArea)
+        # self.layout.setAlignment(self.scrollArea, Qt.AlignmentFlag.AlignTop)
         self.setCentralWidget(QWidget(self))
         self.centralWidget().setLayout(self.layout)
         

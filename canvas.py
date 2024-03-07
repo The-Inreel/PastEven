@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QWidget, QLabel, QFileDialog
-from PySide6.QtGui import QPixmap, QColor, QPainter
+from PySide6.QtGui import QPixmap, QColor, QPainter, QWheelEvent
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6 import QtGui, QtCore
 
@@ -20,10 +20,10 @@ class Canvas(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.label = QLabel(self)
-    
+        self.canvasColor = Qt.GlobalColor.white
         # Set canvas settings
         self.canvas = QPixmap(1500, 900)
-        self.canvas.fill(Qt.GlobalColor.white)
+        self.setCanvasColor(self.canvasColor)
         self.last_x, self.last_y = None, None
         self.label.setPixmap(self.canvas)
         self.pixmap_history = []
@@ -83,6 +83,20 @@ class Canvas(QWidget):
         self.label.setPixmap(self.canvas)
         self.update()
     
+    # Adjust zoom level based on the wheel delta
+    def wheelEvent(self, event: QWheelEvent):
+        # Turned off for now
+        return
+        zoomFactor = 1.1 if event.angleDelta().y() > 0 else 0.9
+        self.adjustZoom(zoomFactor)
+        
+    def adjustZoom(self, factor):
+        scaled_pixmap = self.canvas.scaled(self.canvas.size() * factor, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        self.canvas = scaled_pixmap
+        self.label.setPixmap(self.canvas)
+        self.resize(self.canvas.size())
+        self.update()
+    
     # Adds the current state to undo history
     def addUndo(self):
         if len(self.pixmap_history) > 30: #20 felt weak so gave them 30, redo is limited by undo
@@ -112,6 +126,11 @@ class Canvas(QWidget):
     def setPencilSize(self, value):
         self.ppSize = value
         self.pp.setWidth(self.ppSize)
+    
+    # Sets the canvas color
+    def setCanvasColor(self, color):
+        self.canvas.fill(color)
+        self.update()
 
     # Suggests the initial size for the widget
     def sizeHint(self):
