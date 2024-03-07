@@ -157,7 +157,7 @@ class MainWindow(QMainWindow):
         self.ppSizeBox.setText(f"{self.sizeSlider.value()}")
     
     def mousePressEvent(self, event):
-        self.historySlider.setMaximum(len(self.canvas.pixmap_history) - 1)
+        self.historySlider.setMaximum(len(self.canvas.pixmap_history))
 
     # had to do a bunch of research on how this signal processing works but
     # essentially if you move the slider one way it undoes, other way redoes

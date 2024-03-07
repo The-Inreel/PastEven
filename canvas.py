@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QWidget, QLabel, QFileDialog
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QPixmap, QColor, QPainter
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6 import QtGui, QtCore
 
@@ -23,76 +23,60 @@ class Canvas(QWidget):
     
         # Set canvas settings
         self.canvas = QPixmap(1500, 900)
-        self.canvas.fill(fillColor = Qt.GlobalColor.white)
+        self.canvas.fill(Qt.GlobalColor.white)
         self.last_x, self.last_y = None, None
         self.label.setPixmap(self.canvas)
         self.pixmap_history = []
         self.pixmap_redohist = []
         self.tools = Tools.PENCIL
-        self.color = QtGui.QColor(255, 0, 0)
-        self.painter = None
+        self.color = QColor(255, 0, 0)
         self.ppSize = 4
-        self.brush = QtGui.QBrush(Qt.GlobalColor.black, Qt.BrushStyle.SolidPattern)
-        self.pp = QtGui.QPen(Qt.GlobalColor.black, self.ppSize, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+        self.brush = QtGui.QBrush(self.color, Qt.BrushStyle.SolidPattern)
+        self.pp = QtGui.QPen(self.color, self.ppSize, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
         self.pp.setBrush(self.brush)
         self.saveLoc = None
         
          
     def mouseMoveEvent(self, event):
-        if self.last_x is None: # First event.
-            self.last_x = event.position().x()
-            self.last_y = event.position().y()
-            return # Ignore the first time.
-        
-        self.drawStroke(event)
-        
-        self.last_x = event.position().x()
-        self.last_y = event.position().y()
+        if event.buttons() & Qt.LeftButton and self.last_x is not None:
+            self.drawStroke(event.position().x(), event.position().y())
     
     def mousePressEvent(self, event):
-        self.addUndo()
-        self.last_x = event.position().x()
-        self.last_y = event.position().y()
-        self.drawDot(event)
+        if event.button() == Qt.LeftButton:
+            self.addUndo()
+            self.last_x = event.position().x()
+            self.last_y = event.position().y()
+            self.painter = QPainter(self.canvas)
+            self.painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            self.painter.setPen(self.pp)
+
+            self.drawDot(event.position().x(), event.position().y())
         
     def mouseReleaseEvent(self, event):
-        self.last_x = None
-        self.last_y = None
-        self.setFocus()
-        self.clicked.emit()
+        if event.button() == Qt.LeftButton:
+            self.painter.end()
+            self.last_x = None
+            self.last_y = None
+            self.clicked.emit()
 
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key.Key_Q:
             self.canvas.fill(color = Qt.GlobalColor.white)
             self.label.setPixmap(self.canvas)
             self.update()
-        elif event.key() == QtCore.Qt.Key.Key_P:
-            self.findBorder()
 
         event.accept()
         
-    def drawStroke(self, event):
-        # Sets the pen color to the color var if using pencil else it will set to white (erase)
-        self.pp.setColor(self.color if self.tools == Tools.PENCIL else QtGui.QColor(255, 255, 255))
-        self.pp.setWidth(self.ppSize)
-        self.painter = QtGui.QPainter(self.canvas)
-        self.painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
-        self.painter.setPen(self.pp)
-        
-        self.painter.drawLine(int(self.last_x), int(self.last_y), int(event.position().x()), int(event.position().y()))
-        self.painter.end()
+    def drawStroke(self, x, y):
+        self.pp.setColor(self.color if self.tools == Tools.PENCIL else QColor(255, 255, 255))
+        self.painter.drawLine(self.last_x, self.last_y, x, y)
         self.label.setPixmap(self.canvas)
         self.update()
+        self.last_x = x
+        self.last_y = y
         
-    def drawDot(self, event):
-        self.pp.setColor(self.color if self.tools == Tools.PENCIL else QtGui.QColor(255, 255, 255))
-        self.pp.setWidth(self.ppSize)
-        self.painter = QtGui.QPainter(self.canvas)
-        self.painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
-        self.painter.setPen(self.pp)
-
-        self.painter.drawPoint(int(event.position().x()), int(event.position().y()))
-        self.painter.end()
+    def drawDot(self, x, y):
+        self.painter.drawPoint(int(x), int(y))
         self.label.setPixmap(self.canvas)
         self.update()
         
@@ -122,6 +106,7 @@ class Canvas(QWidget):
     
     def setPencilSize(self, value):
         self.ppSize = value
+        self.pp.setWidth(self.ppSize)
 
     def sizeHint(self):
         return QSize(1500, 900)
