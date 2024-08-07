@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QMainWindow, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout, QButtonGroup, QLineEdit, QScrollArea
+from PySide6.QtWidgets import QMainWindow, QWidget, QPushButton, QLabel, QToolBar, QSlider, QSizePolicy, QVBoxLayout, QButtonGroup, QLineEdit, QScrollArea, QColorDialog
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import QSize, Qt
 from PySide6 import QtGui, QtCore
@@ -105,7 +105,6 @@ class MainWindow(QMainWindow):
         self.historySlider.setEnabled(False)
         self.historySlider.setValue(0)        
         
-        
         # Now you can edit the pen size with a text box woo
         self.ppSizeBox = QLineEdit()
         self.ppSizeBox.setText(str(self.canvas.ppSize))
@@ -117,6 +116,10 @@ class MainWindow(QMainWindow):
         # self.sizeLabel = QLabel(str(self.canvas.ppSize))
         # self.toolBar.addWidget(self.sizeLabel)
         # self.toolBar.addSeparator()
+        
+        colorPickerButton = QPushButton("Color")
+        colorPickerButton.clicked.connect(self.open_color_picker)
+        self.toolBar.addWidget(colorPickerButton)
 
         # added spacer to use text - improve later when i know how to like actually change the spacing
         # p.s. we should probably use some kind of organizer like a vbox or whatever its called
@@ -185,3 +188,9 @@ class MainWindow(QMainWindow):
             self.historySlider.setValue(len(self.canvas.pixmap_history))
         else:
             self.historySlider.setMaximum(len(self.canvas.pixmap_history))
+        
+    # Simply sets the color of the pen
+    def open_color_picker(self):
+        color = QColorDialog.getColor()
+        if color.isValid():
+            self.canvas.color = color
