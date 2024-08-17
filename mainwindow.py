@@ -157,19 +157,20 @@ class MainWindow(QMainWindow):
     def sizeTextChanged(self, text):
         try:
             value = int(text)
-            if value > 100:
+            if 1 <= value <= 100:
+                self.sizeSlider.setValue(value)
+                self.canvas.setPencilSize(value)
+            elif value > 100:
                 self.ppSizeBox.setText('100')
                 self.sizeSlider.setValue(100)
-            else:
-                self.sizeSlider.setValue(value)
+                self.canvas.setPencilSize(100)
         except ValueError:
-            self.ppSizeBox.clear()
-
-        self.ppSizeBox.setText(f"{self.sizeSlider.value()}")
+            print("invalid size val")
+            pass
     
     # Updates the history slider's maximum value based on the undo history length
     def mousePressEvent(self, event):
-        self.historySlider.setMaximum(len(self.canvas.pixmap_history))
+        self.historySlider.setMaximum(len(self.canvas.undo_stack))
 
     # had to do a bunch of research on how this signal processing works but
     # essentially if you move the slider one way it undoes, other way redoes
@@ -184,10 +185,10 @@ class MainWindow(QMainWindow):
         if not self.historySlider.isEnabled():
             self.historySlider.setEnabled(True)
         if self.historySlider.value() == self.historySlider.maximum():
-            self.historySlider.setMaximum(len(self.canvas.pixmap_history))
-            self.historySlider.setValue(len(self.canvas.pixmap_history))
+            self.historySlider.setMaximum(len(self.canvas.undo_stack))
+            self.historySlider.setValue(len(self.canvas.undo_stack))
         else:
-            self.historySlider.setMaximum(len(self.canvas.pixmap_history))
+            self.historySlider.setMaximum(len(self.canvas.undo_stack))
         
     # Simply sets the color of the pen
     def openColorPicker(self):

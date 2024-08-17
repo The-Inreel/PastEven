@@ -1,5 +1,5 @@
-from PySide6.QtWidgets import QWidget, QLabel, QFileDialog
-from PySide6.QtGui import QPixmap, QColor, QPainter, QWheelEvent
+from PySide6.QtWidgets import QGraphicsView, QGraphicsScene, QFileDialog, QGraphicsPathItem
+from PySide6.QtGui import QPixmap, QColor, QPainter, QPen, QPainterPath
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6 import QtGui, QtCore
 
@@ -13,35 +13,30 @@ class Tools(Enum):
     PENCIL = 1
     ERASER = 2
 
-class Canvas(QWidget):
+class Canvas(QGraphicsView):
     
     clicked = Signal()
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.label = QLabel(self)
+        self.scene = QGraphicsScene(self)
+        self.setScene(self.scene)
+        self.setRenderHint(QPainter.Antialiasing)
         self.canvasColor = Qt.GlobalColor.white
         # Set canvas settings
-        self.canvas = QPixmap(1500, 900)
-        self.setCanvasColor(self.canvasColor)
-        self.last_x, self.last_y = None, None
-        self.label.setPixmap(self.canvas)
-        self.pixmap_history = []
-        self.pixmap_redohist = []
-        self.tools = Tools.PENCIL
+        self.setSceneRect(0, 0, 1500, 900)
+        self.setBackgroundBrush(self.canvasColor)
+        
+        self.last_point = None
+        self.drawing = False
+        self.current_path = None
         self.color = QColor(255, 0, 0)
         self.ppSize = 4
-        self.brush = QtGui.QBrush(self.color, Qt.BrushStyle.SolidPattern)
-        self.pp = QtGui.QPen(self.color, self.ppSize, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
-        self.pp.setBrush(self.brush)
-        self.saveLoc = None
+        self.tools = Tools.PENCIL
         
-    # Sets the color of the brush     
-    def setColor(self, color):
-        self.color = color
-        self.brush = QtGui.QBrush(self.color, Qt.BrushStyle.SolidPattern)
-        self.pp = QtGui.QPen(self.color, self.ppSize, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
-        self.pp.setBrush(self.brush)
+        self.undo_stack = []
+        self.redo_stack = []
+        self.saveLoc = None
     
     # Updates the brush color
     def updatePen(self):
@@ -53,29 +48,26 @@ class Canvas(QWidget):
             
     # Handles mouse movement drawing
     def mouseMoveEvent(self, event):
-        if event.buttons() & Qt.LeftButton and self.last_x is not None:
-            self.drawStroke(event.position().x(), event.position().y())
+        if self.drawing:
+            new_point = self.mapToScene(event.position().toPoint())
+            self.current_path.lineTo(new_point)
+            self.drawLineTo(new_point)
+            self.last_point = new_point
     
     # Initializes drawing on mouse press
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            self.addUndo()
-            self.last_x = event.position().x()
-            self.last_y = event.position().y()
-            self.painter = QPainter(self.canvas)
-            self.painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            self.updatePen()
-            self.painter.setPen(self.pp)
-
-            self.drawDot(event.position().x(), event.position().y())
+            self.drawing = True
+            self.last_point = self.mapToScene(event.position().toPoint())
+            self.current_path = QPainterPath()
+            self.current_path.moveTo(self.last_point)
+            self.clicked.emit()
     
     # Finalizes drawing on mouse release
     def mouseReleaseEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.painter.end()
-            self.last_x = None
-            self.last_y = None
-            self.clicked.emit()
+        if event.button() == Qt.LeftButton and self.drawing:
+            self.drawing = False
+            self.finalizePath()
 
     # Clears the canvas on 'Q' key press
     def keyPressEvent(self, event):
@@ -86,62 +78,43 @@ class Canvas(QWidget):
 
         event.accept()
         
-    def drawStroke(self, x, y):
-        self.updatePen()
-        self.painter.drawLine(self.last_x, self.last_y, x, y)
-        self.label.setPixmap(self.canvas)
-        self.update()
-        self.last_x = x
-        self.last_y = y
-        
-    def drawDot(self, x, y):
-        self.painter.drawPoint(int(x), int(y))
-        self.label.setPixmap(self.canvas)
-        self.update()
-    
-    # Adjust zoom level based on the wheel delta
-    def wheelEvent(self, event: QWheelEvent):
-        # Turned off for now
-        return
-        zoomFactor = 1.1 if event.angleDelta().y() > 0 else 0.9
-        self.adjustZoom(zoomFactor)
-        
-    def adjustZoom(self, factor):
-        scaled_pixmap = self.canvas.scaled(self.canvas.size() * factor, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-        self.canvas = scaled_pixmap
-        self.label.setPixmap(self.canvas)
-        self.resize(self.canvas.size())
-        self.update()
+    def drawLineTo(self, end_point):
+        if self.current_path:
+            color = self.color if self.tools == Tools.PENCIL else Qt.white
+            pen = QPen(color, self.ppSize, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+            path_item = QGraphicsPathItem(self.current_path)
+            path_item.setPen(pen)
+            self.scene.addItem(path_item)
+            self.current_path = QPainterPath(end_point)
     
     # Adds the current state to undo history
-    def addUndo(self):
-        if len(self.pixmap_history) > 30: #20 felt weak so gave them 30, redo is limited by undo
-            self.pixmap_history.pop(0)
-            
-        self.pixmap_history.append(self.canvas.copy())
-        self.pixmap_redohist.clear()
+    def finalizePath(self):
+        self.undo_stack.append(self.scene.items())
+        self.redo_stack.clear()
 
     def undo(self):
-        if self.pixmap_history:
-            self.pixmap_redohist.append(self.canvas.copy())
-            self.canvas = self.pixmap_history.pop()
-            self.label.setPixmap(self.canvas)
+        if self.undo_stack:
+            for item in self.undo_stack.pop():
+                self.scene.removeItem(item)
+            self.redo_stack.append(self.scene.items())
             self.update()
 
     def redo(self):
-        if self.pixmap_redohist:
-            self.pixmap_history.append(self.canvas.copy())
-            self.canvas = self.pixmap_redohist.pop()
-            self.label.setPixmap(self.canvas)
+        if self.redo_stack:
+            for item in self.redo_stack.pop():
+                self.scene.addItem(item)
+            self.undo_stack.append(self.scene.items())
             self.update()
     
     # Sets the current drawing tool (e.g., pencil or eraser)
     def setTool(self, tool):
         self.tools = tool
+        
+    def setColor(self, color):
+        self.color = color
     
-    def setPencilSize(self, value):
-        self.ppSize = value
-        self.pp.setWidth(self.ppSize)
+    def setPencilSize(self, size):
+        self.ppSize = size
     
     # Sets the canvas color
     def setCanvasColor(self, color):
