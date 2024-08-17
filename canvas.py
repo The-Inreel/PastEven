@@ -36,6 +36,21 @@ class Canvas(QWidget):
         self.pp.setBrush(self.brush)
         self.saveLoc = None
         
+    # Sets the color of the brush     
+    def setColor(self, color):
+        self.color = color
+        self.brush = QtGui.QBrush(self.color, Qt.BrushStyle.SolidPattern)
+        self.pp = QtGui.QPen(self.color, self.ppSize, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+        self.pp.setBrush(self.brush)
+    
+    # Updates the brush color
+    def updatePen(self):
+        if self.tools == Tools.PENCIL:
+            self.pp.setColor(self.color)
+        else:  # Eraser
+            self.pp.setColor(QColor(255, 255, 255))
+        self.painter.setPen(self.pp)
+            
     # Handles mouse movement drawing
     def mouseMoveEvent(self, event):
         if event.buttons() & Qt.LeftButton and self.last_x is not None:
@@ -49,6 +64,7 @@ class Canvas(QWidget):
             self.last_y = event.position().y()
             self.painter = QPainter(self.canvas)
             self.painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            self.updatePen()
             self.painter.setPen(self.pp)
 
             self.drawDot(event.position().x(), event.position().y())
@@ -71,7 +87,7 @@ class Canvas(QWidget):
         event.accept()
         
     def drawStroke(self, x, y):
-        self.pp.setColor(self.color if self.tools == Tools.PENCIL else QColor(255, 255, 255))
+        self.updatePen()
         self.painter.drawLine(self.last_x, self.last_y, x, y)
         self.label.setPixmap(self.canvas)
         self.update()

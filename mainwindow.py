@@ -118,7 +118,7 @@ class MainWindow(QMainWindow):
         # self.toolBar.addSeparator()
         
         colorPickerButton = QPushButton("Color")
-        colorPickerButton.clicked.connect(self.open_color_picker)
+        colorPickerButton.clicked.connect(self.openColorPicker)
         self.toolBar.addWidget(colorPickerButton)
 
         # added spacer to use text - improve later when i know how to like actually change the spacing
@@ -190,7 +190,7 @@ class MainWindow(QMainWindow):
             self.historySlider.setMaximum(len(self.canvas.pixmap_history))
         
     # Simply sets the color of the pen
-    def open_color_picker(self):
+    def openColorPicker(self):
         color = QColorDialog.getColor()
         if color.isValid():
-            self.canvas.color = color
+            self.canvas.setColor(color)
