@@ -30,6 +30,7 @@ class Canvas(QGraphicsView):
         self.last_point = None
         self.drawing = False
         self.current_path = None
+        self.path_item = None
         self.color = QColor(255, 0, 0)
         self.ppSize = 4
         self.tools = Tools.PENCIL
@@ -50,7 +51,7 @@ class Canvas(QGraphicsView):
     def mouseMoveEvent(self, event):
         if self.drawing:
             new_point = self.mapToScene(event.position().toPoint())
-            self.current_path.lineTo(new_point)
+            self.current_path.quadTo(self.last_point, (self.last_point + new_point) / 2)
             self.drawLineTo(new_point)
             self.last_point = new_point
     
@@ -61,6 +62,7 @@ class Canvas(QGraphicsView):
             self.last_point = self.mapToScene(event.position().toPoint())
             self.current_path = QPainterPath()
             self.current_path.moveTo(self.last_point)
+            self.path_item = None
             self.clicked.emit()
     
     # Finalizes drawing on mouse release
@@ -82,28 +84,36 @@ class Canvas(QGraphicsView):
         if self.current_path:
             color = self.color if self.tools == Tools.PENCIL else Qt.white
             pen = QPen(color, self.ppSize, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-            path_item = QGraphicsPathItem(self.current_path)
-            path_item.setPen(pen)
-            self.scene.addItem(path_item)
-            self.current_path = QPainterPath(end_point)
+            if self.path_item is None:
+                self.path_item = self.scene.addPath(self.current_path, pen)
+            else:
+                self.path_item.setPath(self.current_path)
     
     # Adds the current state to undo history
     def finalizePath(self):
-        self.undo_stack.append(self.scene.items())
-        self.redo_stack.clear()
+        if self.path_item:
+            self.undo_stack.append([self.path_item])
+            self.redo_stack.clear()
+            self.path_item = None
 
     def undo(self):
         if self.undo_stack:
-            for item in self.undo_stack.pop():
+            action = self.undo_stack.pop()
+            redo_action = []
+            for item in action:
                 self.scene.removeItem(item)
-            self.redo_stack.append(self.scene.items())
+                redo_action.append(item)
+            self.redo_stack.append(redo_action)
             self.update()
 
     def redo(self):
         if self.redo_stack:
-            for item in self.redo_stack.pop():
+            action = self.redo_stack.pop()
+            undo_action = []
+            for item in action:
                 self.scene.addItem(item)
-            self.undo_stack.append(self.scene.items())
+                undo_action.append(item)
+            self.undo_stack.append(undo_action)
             self.update()
     
     # Sets the current drawing tool (e.g., pencil or eraser)
