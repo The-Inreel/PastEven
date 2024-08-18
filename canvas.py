@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QGraphicsView, QGraphicsScene, QFileDialog
-from PySide6.QtGui import QPixmap, QColor, QPainter, QPen, QPainterPath, QBrush
-from PySide6.QtCore import QSize, Qt, Signal, QRectF
+from PySide6.QtGui import QPixmap, QColor, QPainter, QPen, QPainterPath, QBrush, QImage
+from PySide6.QtCore import Qt, Signal, QRectF
 from PySide6 import QtGui, QtCore
 
 from enum import Enum
@@ -145,26 +145,38 @@ class Canvas(QGraphicsView):
         self.canvas.fill(color)
         self.update()
 
-    # Suggests the initial size for the widget
-    def sizeHint(self):
-        return QSize(1500, 900)
-
     def save(self):
         if self.saveLoc is None:
             path = self.saveFileDialog()
             if path:
                 self.saveLoc = path
-                self.label.pixmap().toImage().save(path)
+                self.saveImage(path)
         else:
-            self.label.pixmap().toImage().save(self.saveLoc)
-        
+            self.saveImage(self.saveLoc)
+
     def load(self):
-        self.addUndo()
         path = self.openFileDialog()
         if path:
-            self.canvas = QtGui.QPixmap(path)
+            self.loadImage(path)
             self.saveLoc = path
-            self.label.setPixmap(self.canvas)
+            
+    def saveImage(self, path):
+        image = QImage(self.sceneRect().size().toSize(), QImage.Format_ARGB32)
+        image.fill(Qt.transparent)
+        painter = QPainter(image)
+        self.scene.render(painter)
+        painter.end()
+        image.save(path)
+
+    def loadImage(self, path):
+        image = QImage(path)
+        if not image.isNull():
+            self.scene.clear()
+            self.undo_stack.clear()
+            self.redo_stack.clear()
+            pixmap = QPixmap.fromImage(image)
+            self.scene.addPixmap(pixmap)
+            self.setSceneRect(pixmap.rect())
             self.update()
     
     def openFileDialog(self):
