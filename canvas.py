@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QGraphicsView, QGraphicsScene, QFileDialog
 from PySide6.QtGui import QPixmap, QColor, QPainter, QPen, QPainterPath, QBrush, QImage
 from PySide6.QtCore import Qt, Signal, QRectF
-from PySide6 import QtGui, QtCore
+from PySide6 import QtCore
 
 from enum import Enum
 from PIL import ImageQt, Image
@@ -21,7 +21,7 @@ class Canvas(QGraphicsView):
         super().__init__(parent)
         self.scene = QGraphicsScene(self)
         self.setScene(self.scene)
-        self.setRenderHint(QPainter.Antialiasing)
+        self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.canvasColor = Qt.GlobalColor.white
         # Set canvas settings
         self.setSceneRect(0, 0, 1500, 900)
@@ -84,7 +84,8 @@ class Canvas(QGraphicsView):
             self.update()
 
         event.accept()
-        
+    
+    # Draws a line to the given end point
     def drawLineTo(self, end_point):
         if self.current_path:
             color = self.color if self.tools == Tools.PENCIL else Qt.white
@@ -93,7 +94,8 @@ class Canvas(QGraphicsView):
                 self.path_item = self.scene.addPath(self.current_path, pen)
             else:
                 self.path_item.setPath(self.current_path)
-                
+    
+    # Draws a single point at the specified location   
     def drawSinglePoint(self, point):
         color = self.color if self.tools == Tools.PENCIL else Qt.white
         pen = QPen(color, 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
@@ -110,6 +112,7 @@ class Canvas(QGraphicsView):
             self.redo_stack.clear()
             self.path_item = None
 
+    # Undoes the last action
     def undo(self):
         if self.undo_stack:
             action = self.undo_stack.pop()
@@ -120,6 +123,7 @@ class Canvas(QGraphicsView):
             self.redo_stack.append(redo_action)
             self.update()
 
+    # Redoes the last undone action
     def redo(self):
         if self.redo_stack:
             action = self.redo_stack.pop()
@@ -133,10 +137,12 @@ class Canvas(QGraphicsView):
     # Sets the current drawing tool (e.g., pencil or eraser)
     def setTool(self, tool):
         self.tools = tool
-        
+    
+    # Sets the current drawing color
     def setColor(self, color):
         self.color = color
     
+    # Sets the size of the pencil/eraser
     def setPencilSize(self, size):
         self.ppSize = size
     
@@ -145,6 +151,7 @@ class Canvas(QGraphicsView):
         self.canvas.fill(color)
         self.update()
 
+    # Saves the current image to a file
     def save(self):
         if self.saveLoc is None:
             path = self.saveFileDialog()
@@ -154,20 +161,23 @@ class Canvas(QGraphicsView):
         else:
             self.saveImage(self.saveLoc)
 
+    # Loads an image from a file
     def load(self):
         path = self.openFileDialog()
         if path:
             self.loadImage(path)
             self.saveLoc = path
-            
+    
+    # Helper that saves the current scene to an image file
     def saveImage(self, path):
-        image = QImage(self.sceneRect().size().toSize(), QImage.Format_ARGB32)
-        image.fill(Qt.transparent)
+        image = QImage(self.sceneRect().size().toSize(), QImage.Format.Format_ARGB32)
+        image.fill(Qt.GlobalColor.transparent)
         painter = QPainter(image)
         self.scene.render(painter)
         painter.end()
         image.save(path)
 
+    # Helper that loads an image from a file and displays it on the canvas
     def loadImage(self, path):
         image = QImage(path)
         if not image.isNull():
@@ -179,10 +189,12 @@ class Canvas(QGraphicsView):
             self.setSceneRect(pixmap.rect())
             self.update()
     
+    # Opens a file dialog to select an image to load
     def openFileDialog(self):
         file_name, _ = QFileDialog.getOpenFileName(self, 'Load Image', "./")
         return file_name
     
+    # Opens a file dialog to save the current image
     def saveFileDialog(self):
         file_name, _ = QFileDialog.getSaveFileName(self, 'Save Image', "./", "Image (*.png)")
         if not self.hasImgExt(file_name):
