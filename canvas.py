@@ -1,6 +1,6 @@
-from PySide6.QtWidgets import QGraphicsView, QGraphicsScene, QFileDialog, QGraphicsPathItem
-from PySide6.QtGui import QPixmap, QColor, QPainter, QPen, QPainterPath
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtWidgets import QGraphicsView, QGraphicsScene, QFileDialog
+from PySide6.QtGui import QPixmap, QColor, QPainter, QPen, QPainterPath, QBrush
+from PySide6.QtCore import QSize, Qt, Signal, QRectF
 from PySide6 import QtGui, QtCore
 
 from enum import Enum
@@ -29,6 +29,7 @@ class Canvas(QGraphicsView):
         
         self.last_point = None
         self.drawing = False
+        self.single_point = True
         self.current_path = None
         self.path_item = None
         self.color = QColor(255, 0, 0)
@@ -46,28 +47,32 @@ class Canvas(QGraphicsView):
         else:  # Eraser
             self.pp.setColor(QColor(255, 255, 255))
         self.painter.setPen(self.pp)
-            
-    # Handles mouse movement drawing
-    def mouseMoveEvent(self, event):
-        if self.drawing:
-            new_point = self.mapToScene(event.position().toPoint())
-            self.current_path.quadTo(self.last_point, (self.last_point + new_point) / 2)
-            self.drawLineTo(new_point)
-            self.last_point = new_point
     
     # Initializes drawing on mouse press
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.drawing = True
+            self.single_point = True
             self.last_point = self.mapToScene(event.position().toPoint())
             self.current_path = QPainterPath()
             self.current_path.moveTo(self.last_point)
             self.path_item = None
             self.clicked.emit()
+            
+    # Handles mouse movement drawing
+    def mouseMoveEvent(self, event):
+        if self.drawing:
+            self.single_point = False
+            new_point = self.mapToScene(event.position().toPoint())
+            self.current_path.quadTo(self.last_point, (self.last_point + new_point) / 2)
+            self.drawLineTo(new_point)
+            self.last_point = new_point
     
     # Finalizes drawing on mouse release
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton and self.drawing:
+            if self.single_point:
+                self.drawSinglePoint(self.last_point)
             self.drawing = False
             self.finalizePath()
 
@@ -88,6 +93,15 @@ class Canvas(QGraphicsView):
                 self.path_item = self.scene.addPath(self.current_path, pen)
             else:
                 self.path_item.setPath(self.current_path)
+                
+    def drawSinglePoint(self, point):
+        color = self.color if self.tools == Tools.PENCIL else Qt.white
+        pen = QPen(color, 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        brush = QBrush(color)
+        ellipse_size = self.ppSize
+        ellipse = QRectF(point.x() - ellipse_size / 2, point.y() - ellipse_size / 2, 
+                         ellipse_size, ellipse_size)
+        self.path_item = self.scene.addEllipse(ellipse, pen, brush)
     
     # Adds the current state to undo history
     def finalizePath(self):
