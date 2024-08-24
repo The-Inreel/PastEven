@@ -29,15 +29,15 @@ class Canvas(QGraphicsView):
         
         self.last_point = None
         self.drawing = False
-        self.single_point = True
-        self.current_path = None
-        self.path_item = None
+        self.singlePoint = True
+        self.currentPath = None
+        self.pathItem = None
         self.color = QColor(255, 0, 0)
         self.ppSize = 4
         self.tools = Tools.PENCIL
         
-        self.undo_stack = []
-        self.redo_stack = []
+        self.undoStack = []
+        self.redoStack = []
         self.saveLoc = None
     
     # Updates the brush color
@@ -52,26 +52,26 @@ class Canvas(QGraphicsView):
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.drawing = True
-            self.single_point = True
+            self.singlePoint = True
             self.last_point = self.mapToScene(event.position().toPoint())
-            self.current_path = QPainterPath()
-            self.current_path.moveTo(self.last_point)
-            self.path_item = None
+            self.currentPath = QPainterPath()
+            self.currentPath.moveTo(self.last_point)
+            self.pathItem = None
             self.clicked.emit()
             
     # Handles mouse movement drawing
     def mouseMoveEvent(self, event):
         if self.drawing:
-            self.single_point = False
+            self.singlePoint = False
             new_point = self.mapToScene(event.position().toPoint())
-            self.current_path.quadTo(self.last_point, (self.last_point + new_point) / 2)
+            self.currentPath.quadTo(self.last_point, (self.last_point + new_point) / 2)
             self.drawLineTo(new_point)
             self.last_point = new_point
     
     # Finalizes drawing on mouse release
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton and self.drawing:
-            if self.single_point:
+            if self.singlePoint:
                 self.drawSinglePoint(self.last_point)
             self.drawing = False
             self.finalizePath()
@@ -87,13 +87,13 @@ class Canvas(QGraphicsView):
     
     # Draws a line to the given end point
     def drawLineTo(self, end_point):
-        if self.current_path:
+        if self.currentPath:
             color = self.color if self.tools == Tools.PENCIL else Qt.white
             pen = QPen(color, self.ppSize, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-            if self.path_item is None:
-                self.path_item = self.scene.addPath(self.current_path, pen)
+            if self.pathItem is None:
+                self.pathItem = self.scene.addPath(self.currentPath, pen)
             else:
-                self.path_item.setPath(self.current_path)
+                self.pathItem.setPath(self.currentPath)
     
     # Draws a single point at the specified location   
     def drawSinglePoint(self, point):
@@ -103,35 +103,35 @@ class Canvas(QGraphicsView):
         ellipse_size = self.ppSize
         ellipse = QRectF(point.x() - ellipse_size / 2, point.y() - ellipse_size / 2, 
                          ellipse_size, ellipse_size)
-        self.path_item = self.scene.addEllipse(ellipse, pen, brush)
+        self.pathItem = self.scene.addEllipse(ellipse, pen, brush)
     
     # Adds the current state to undo history
     def finalizePath(self):
-        if self.path_item:
-            self.undo_stack.append([self.path_item])
-            self.redo_stack.clear()
-            self.path_item = None
+        if self.pathItem:
+            self.undoStack.append([self.pathItem])
+            self.redoStack.clear()
+            self.pathItem = None
 
     # Undoes the last action
     def undo(self):
-        if self.undo_stack:
-            action = self.undo_stack.pop()
+        if self.undoStack:
+            action = self.undoStack.pop()
             redo_action = []
             for item in action:
                 self.scene.removeItem(item)
                 redo_action.append(item)
-            self.redo_stack.append(redo_action)
+            self.redoStack.append(redo_action)
             self.update()
 
     # Redoes the last undone action
     def redo(self):
-        if self.redo_stack:
-            action = self.redo_stack.pop()
+        if self.redoStack:
+            action = self.redoStack.pop()
             undo_action = []
             for item in action:
                 self.scene.addItem(item)
                 undo_action.append(item)
-            self.undo_stack.append(undo_action)
+            self.undoStack.append(undo_action)
             self.update()
     
     # Sets the current drawing tool (e.g., pencil or eraser)
@@ -182,8 +182,8 @@ class Canvas(QGraphicsView):
         image = QImage(path)
         if not image.isNull():
             self.scene.clear()
-            self.undo_stack.clear()
-            self.redo_stack.clear()
+            self.undoStack.clear()
+            self.redoStack.clear()
             pixmap = QPixmap.fromImage(image)
             self.scene.addPixmap(pixmap)
             self.setSceneRect(pixmap.rect())
@@ -208,6 +208,7 @@ class Canvas(QGraphicsView):
         return file_extension in image_extensions
     
     # Detects and adds borders in the current canvas image
+    # TODO: Fix this
     def findBorder(self):
         pixmapAsImage = self.label.pixmap().toImage()
         width, height = pixmapAsImage.width(), pixmapAsImage.height()
