@@ -1,7 +1,7 @@
-from PySide6.QtWidgets import QWidget, QLabel, QFileDialog
-from PySide6.QtGui import QPixmap, QColor, QPainter, QWheelEvent
-from PySide6.QtCore import QSize, Qt, Signal
-from PySide6 import QtGui, QtCore
+from PySide6.QtWidgets import QGraphicsView, QGraphicsScene, QFileDialog
+from PySide6.QtGui import QPixmap, QColor, QPainter, QPen, QPainterPath, QBrush, QImage
+from PySide6.QtCore import Qt, Signal, QRectF
+from PySide6 import QtCore
 
 from enum import Enum
 from PIL import ImageQt, Image
@@ -13,35 +13,32 @@ class Tools(Enum):
     PENCIL = 1
     ERASER = 2
 
-class Canvas(QWidget):
+class Canvas(QGraphicsView):
     
     clicked = Signal()
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.label = QLabel(self)
+        self.scene = QGraphicsScene(self)
+        self.setScene(self.scene)
+        self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.canvasColor = Qt.GlobalColor.white
         # Set canvas settings
-        self.canvas = QPixmap(1500, 900)
-        self.setCanvasColor(self.canvasColor)
-        self.last_x, self.last_y = None, None
-        self.label.setPixmap(self.canvas)
-        self.pixmap_history = []
-        self.pixmap_redohist = []
-        self.tools = Tools.PENCIL
+        self.setSceneRect(0, 0, 1500, 900)
+        self.setBackgroundBrush(self.canvasColor)
+        
+        self.last_point = None
+        self.drawing = False
+        self.singlePoint = True
+        self.currentPath = None
+        self.pathItem = None
         self.color = QColor(255, 0, 0)
         self.ppSize = 4
-        self.brush = QtGui.QBrush(self.color, Qt.BrushStyle.SolidPattern)
-        self.pp = QtGui.QPen(self.color, self.ppSize, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
-        self.pp.setBrush(self.brush)
-        self.saveLoc = None
+        self.tools = Tools.PENCIL
         
-    # Sets the color of the brush     
-    def setColor(self, color):
-        self.color = color
-        self.brush = QtGui.QBrush(self.color, Qt.BrushStyle.SolidPattern)
-        self.pp = QtGui.QPen(self.color, self.ppSize, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
-        self.pp.setBrush(self.brush)
+        self.undoStack = []
+        self.redoStack = []
+        self.saveLoc = None
     
     # Updates the brush color
     def updatePen(self):
@@ -50,32 +47,34 @@ class Canvas(QWidget):
         else:  # Eraser
             self.pp.setColor(QColor(255, 255, 255))
         self.painter.setPen(self.pp)
-            
-    # Handles mouse movement drawing
-    def mouseMoveEvent(self, event):
-        if event.buttons() & Qt.LeftButton and self.last_x is not None:
-            self.drawStroke(event.position().x(), event.position().y())
     
     # Initializes drawing on mouse press
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            self.addUndo()
-            self.last_x = event.position().x()
-            self.last_y = event.position().y()
-            self.painter = QPainter(self.canvas)
-            self.painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            self.updatePen()
-            self.painter.setPen(self.pp)
-
-            self.drawDot(event.position().x(), event.position().y())
+            self.drawing = True
+            self.singlePoint = True
+            self.last_point = self.mapToScene(event.position().toPoint())
+            self.currentPath = QPainterPath()
+            self.currentPath.moveTo(self.last_point)
+            self.pathItem = None
+            self.clicked.emit()
+            
+    # Handles mouse movement drawing
+    def mouseMoveEvent(self, event):
+        if self.drawing:
+            self.singlePoint = False
+            new_point = self.mapToScene(event.position().toPoint())
+            self.currentPath.quadTo(self.last_point, (self.last_point + new_point) / 2)
+            self.drawLineTo(new_point)
+            self.last_point = new_point
     
     # Finalizes drawing on mouse release
     def mouseReleaseEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.painter.end()
-            self.last_x = None
-            self.last_y = None
-            self.clicked.emit()
+        if event.button() == Qt.LeftButton and self.drawing:
+            if self.singlePoint:
+                self.drawSinglePoint(self.last_point)
+            self.drawing = False
+            self.finalizePath()
 
     # Clears the canvas on 'Q' key press
     def keyPressEvent(self, event):
@@ -85,95 +84,117 @@ class Canvas(QWidget):
             self.update()
 
         event.accept()
-        
-    def drawStroke(self, x, y):
-        self.updatePen()
-        self.painter.drawLine(self.last_x, self.last_y, x, y)
-        self.label.setPixmap(self.canvas)
-        self.update()
-        self.last_x = x
-        self.last_y = y
-        
-    def drawDot(self, x, y):
-        self.painter.drawPoint(int(x), int(y))
-        self.label.setPixmap(self.canvas)
-        self.update()
     
-    # Adjust zoom level based on the wheel delta
-    def wheelEvent(self, event: QWheelEvent):
-        # Turned off for now
-        return
-        zoomFactor = 1.1 if event.angleDelta().y() > 0 else 0.9
-        self.adjustZoom(zoomFactor)
-        
-    def adjustZoom(self, factor):
-        scaled_pixmap = self.canvas.scaled(self.canvas.size() * factor, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-        self.canvas = scaled_pixmap
-        self.label.setPixmap(self.canvas)
-        self.resize(self.canvas.size())
-        self.update()
+    # Draws a line to the given end point
+    def drawLineTo(self, end_point):
+        if self.currentPath:
+            color = self.color if self.tools == Tools.PENCIL else Qt.white
+            pen = QPen(color, self.ppSize, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+            if self.pathItem is None:
+                self.pathItem = self.scene.addPath(self.currentPath, pen)
+            else:
+                self.pathItem.setPath(self.currentPath)
+    
+    # Draws a single point at the specified location   
+    def drawSinglePoint(self, point):
+        color = self.color if self.tools == Tools.PENCIL else Qt.white
+        pen = QPen(color, 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        brush = QBrush(color)
+        ellipse_size = self.ppSize
+        ellipse = QRectF(point.x() - ellipse_size / 2, point.y() - ellipse_size / 2, 
+                         ellipse_size, ellipse_size)
+        self.pathItem = self.scene.addEllipse(ellipse, pen, brush)
     
     # Adds the current state to undo history
-    def addUndo(self):
-        if len(self.pixmap_history) > 30: #20 felt weak so gave them 30, redo is limited by undo
-            self.pixmap_history.pop(0)
-            
-        self.pixmap_history.append(self.canvas.copy())
-        self.pixmap_redohist.clear()
+    def finalizePath(self):
+        if self.pathItem:
+            self.undoStack.append([self.pathItem])
+            self.redoStack.clear()
+            self.pathItem = None
 
+    # Undoes the last action
     def undo(self):
-        if self.pixmap_history:
-            self.pixmap_redohist.append(self.canvas.copy())
-            self.canvas = self.pixmap_history.pop()
-            self.label.setPixmap(self.canvas)
+        if self.undoStack:
+            action = self.undoStack.pop()
+            redo_action = []
+            for item in action:
+                self.scene.removeItem(item)
+                redo_action.append(item)
+            self.redoStack.append(redo_action)
             self.update()
 
+    # Redoes the last undone action
     def redo(self):
-        if self.pixmap_redohist:
-            self.pixmap_history.append(self.canvas.copy())
-            self.canvas = self.pixmap_redohist.pop()
-            self.label.setPixmap(self.canvas)
+        if self.redoStack:
+            action = self.redoStack.pop()
+            undo_action = []
+            for item in action:
+                self.scene.addItem(item)
+                undo_action.append(item)
+            self.undoStack.append(undo_action)
             self.update()
     
     # Sets the current drawing tool (e.g., pencil or eraser)
     def setTool(self, tool):
         self.tools = tool
     
-    def setPencilSize(self, value):
-        self.ppSize = value
-        self.pp.setWidth(self.ppSize)
+    # Sets the current drawing color
+    def setColor(self, color):
+        self.color = color
+    
+    # Sets the size of the pencil/eraser
+    def setPencilSize(self, size):
+        self.ppSize = size
     
     # Sets the canvas color
     def setCanvasColor(self, color):
         self.canvas.fill(color)
         self.update()
 
-    # Suggests the initial size for the widget
-    def sizeHint(self):
-        return QSize(1500, 900)
-
+    # Saves the current image to a file
     def save(self):
         if self.saveLoc is None:
             path = self.saveFileDialog()
             if path:
                 self.saveLoc = path
-                self.label.pixmap().toImage().save(path)
+                self.saveImage(path)
         else:
-            self.label.pixmap().toImage().save(self.saveLoc)
-        
+            self.saveImage(self.saveLoc)
+
+    # Loads an image from a file
     def load(self):
-        self.addUndo()
         path = self.openFileDialog()
         if path:
-            self.canvas = QtGui.QPixmap(path)
+            self.loadImage(path)
             self.saveLoc = path
-            self.label.setPixmap(self.canvas)
+    
+    # Helper that saves the current scene to an image file
+    def saveImage(self, path):
+        image = QImage(self.sceneRect().size().toSize(), QImage.Format.Format_ARGB32)
+        image.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(image)
+        self.scene.render(painter)
+        painter.end()
+        image.save(path)
+
+    # Helper that loads an image from a file and displays it on the canvas
+    def loadImage(self, path):
+        image = QImage(path)
+        if not image.isNull():
+            self.scene.clear()
+            self.undoStack.clear()
+            self.redoStack.clear()
+            pixmap = QPixmap.fromImage(image)
+            self.scene.addPixmap(pixmap)
+            self.setSceneRect(pixmap.rect())
             self.update()
     
+    # Opens a file dialog to select an image to load
     def openFileDialog(self):
         file_name, _ = QFileDialog.getOpenFileName(self, 'Load Image', "./")
         return file_name
     
+    # Opens a file dialog to save the current image
     def saveFileDialog(self):
         file_name, _ = QFileDialog.getSaveFileName(self, 'Save Image', "./", "Image (*.png)")
         if not self.hasImgExt(file_name):
@@ -187,6 +208,7 @@ class Canvas(QWidget):
         return file_extension in image_extensions
     
     # Detects and adds borders in the current canvas image
+    # TODO: Fix this
     def findBorder(self):
         pixmapAsImage = self.label.pixmap().toImage()
         width, height = pixmapAsImage.width(), pixmapAsImage.height()
