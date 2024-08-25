@@ -22,16 +22,18 @@ class Canvas(QGraphicsView):
         self.scene = QGraphicsScene(self)
         self.setScene(self.scene)
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
-        self.canvasColor = Qt.GlobalColor.white
+        self.canvasColor = Qt.GlobalColor.transparent
         # Set canvas settings
-        self.setSceneRect(0, 0, 1500, 900)
-        self.setBackgroundBrush(self.canvasColor)
+        self.image = QImage(1500, 900, QImage.Format.Format_ARGB32)
+        self.image.fill(self.canvasColor)
+        self.tempImg = QImage(self.image.size(), QImage.Format.Format_ARGB32)
+        self.tempImg.fill(Qt.transparent)
+        self.pixmap = self.scene.addPixmap(QPixmap.fromImage(self.image))
         
-        self.last_point = None
+        self.border = self.scene.addRect(QRectF(self.image.rect()), QPen(Qt.GlobalColor.gray, 2))
+        
+        self.lastPoint = None
         self.drawing = False
-        self.singlePoint = True
-        self.currentPath = None
-        self.pathItem = None
         self.color = QColor(255, 0, 0)
         self.ppSize = 4
         self.tools = Tools.PENCIL
@@ -52,57 +54,74 @@ class Canvas(QGraphicsView):
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.drawing = True
-            self.singlePoint = True
-            self.last_point = self.mapToScene(event.position().toPoint())
-            self.currentPath = QPainterPath()
-            self.currentPath.moveTo(self.last_point)
-            self.pathItem = None
+            self.lastPoint = self.mapToScene(event.position().toPoint())
+            self.undoStack.append(self.image.copy())
+            self.redoStack.clear()
             self.clicked.emit()
             
     # Handles mouse movement drawing
     def mouseMoveEvent(self, event):
         if self.drawing:
-            self.singlePoint = False
-            new_point = self.mapToScene(event.position().toPoint())
-            self.currentPath.quadTo(self.last_point, (self.last_point + new_point) / 2)
-            self.drawLineTo(new_point)
-            self.last_point = new_point
+            newPoint = self.mapToScene(event.position().toPoint())
+            self.drawLineTo(newPoint)
+            self.lastPoint = newPoint
     
     # Finalizes drawing on mouse release
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton and self.drawing:
-            if self.singlePoint:
-                self.drawSinglePoint(self.last_point)
             self.drawing = False
-            self.finalizePath()
+            self.mergeTempLayers()
 
+    # Merges old temp layers with current final layer
+    def mergeTempLayers(self):
+        painter = QPainter(self.image)
+        painter.drawImage(0, 0, self.tempImg)
+        painter.end()
+        self.tempImg.fill(Qt.transparent)
+        self.updateCanvas()
+    
+    # Updates the canvas when changes take place
+    def updateCanvas(self):
+        combinedImg = QImage(self.image.size(), QImage.Format.Format_ARGB32)
+        painter = QPainter(combinedImg)
+        painter.drawImage(0, 0, self.image)
+        painter.drawImage(0, 0, self.tempImg)
+        painter.end()
+        self.pixmap.setPixmap(QPixmap.fromImage(combinedImg))        
+        
     # Clears the canvas on 'Q' key press
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key.Key_Q:
-            self.canvas.fill(color = Qt.GlobalColor.white)
-            self.label.setPixmap(self.canvas)
+            self.image.fill(Qt.GlobalColor.transparent)
+            self.scene.clear()
+            self.pixmap = self.scene.addPixmap(QPixmap.fromImage(self.image))
+            self.border = self.scene.addRect(QRectF(self.image.rect()), QPen(Qt.GlobalColor.gray, 2))
             self.update()
-
         event.accept()
     
     # Draws a line to the given end point
-    def drawLineTo(self, end_point):
-        if self.currentPath:
-            color = self.color if self.tools == Tools.PENCIL else Qt.white
-            pen = QPen(color, self.ppSize, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-            if self.pathItem is None:
-                self.pathItem = self.scene.addPath(self.currentPath, pen)
-            else:
-                self.pathItem.setPath(self.currentPath)
+    def drawLineTo(self, endPoint):
+        painter = QPainter(self.tempImg)
+        pen = QPen(self.color if self.tools == Tools.PENCIL else Qt.transparent, 
+                   self.ppSize, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        if self.tools == Tools.ERASER:
+            painter.setCompositionMode(QPainter.CompositionMode_Clear)
+            painter.setRenderHint(QPainter.Antialiasing, False)
+        
+        painter.setPen(pen)
+        painter.drawLine(self.lastPoint, endPoint)
+        painter.end()
+        
+        self.updateCanvas()
     
     # Draws a single point at the specified location   
     def drawSinglePoint(self, point):
         color = self.color if self.tools == Tools.PENCIL else Qt.white
         pen = QPen(color, 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
         brush = QBrush(color)
-        ellipse_size = self.ppSize
-        ellipse = QRectF(point.x() - ellipse_size / 2, point.y() - ellipse_size / 2, 
-                         ellipse_size, ellipse_size)
+        ellipseSize = self.ppSize
+        ellipse = QRectF(point.x() - ellipseSize / 2, point.y() - ellipseSize / 2, 
+                         ellipseSize, ellipseSize)
         self.pathItem = self.scene.addEllipse(ellipse, pen, brush)
     
     # Adds the current state to undo history
@@ -115,24 +134,16 @@ class Canvas(QGraphicsView):
     # Undoes the last action
     def undo(self):
         if self.undoStack:
-            action = self.undoStack.pop()
-            redo_action = []
-            for item in action:
-                self.scene.removeItem(item)
-                redo_action.append(item)
-            self.redoStack.append(redo_action)
-            self.update()
+            self.redoStack.append(self.image.copy())
+            self.image = self.undoStack.pop()
+            self.updateCanvas()
 
     # Redoes the last undone action
     def redo(self):
         if self.redoStack:
-            action = self.redoStack.pop()
-            undo_action = []
-            for item in action:
-                self.scene.addItem(item)
-                undo_action.append(item)
-            self.undoStack.append(undo_action)
-            self.update()
+            self.undoStack.append(self.image.copy())
+            self.image = self.redoStack.pop()
+            self.updateCanvas()
     
     # Sets the current drawing tool (e.g., pencil or eraser)
     def setTool(self, tool):

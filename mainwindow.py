@@ -11,7 +11,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("PastEven")
         # TODO: Make Icon
         self.setWindowIcon(QIcon("resources/pencil.png"))
-        self.setMinimumSize(QSize(1500, 1000))
+        self.setMinimumSize(QSize(1550, 1000))
         # self.setStyleSheet("background: #050B0D")
         centralWidget = QWidget(self)
         self.setCentralWidget(centralWidget)
