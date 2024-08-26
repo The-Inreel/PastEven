@@ -48,6 +48,7 @@ class Canvas(QGraphicsView):
             self.lastPoint = self.mapToScene(event.position().toPoint())
             self.undoStack.append(self.pixmap.copy())
             self.redoStack.clear()
+            self.drawSinglePoint(self.lastPoint)
             self.clicked.emit()
             
     # Handles mouse movement drawing
