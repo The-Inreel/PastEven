@@ -70,9 +70,11 @@ class MainWindow(QMainWindow):
         
         penButton = self.createToolButton("Pencil", Tools.PENCIL, "resources/icons/pencil.png", True)
         eraserButton = self.createToolButton("Eraser", Tools.ERASER, "resources/icons/eraser.png")
+        selectButton = self.createToolButton("Select", Tools.RECTANGLE_SELECT, "resources/icons/border.png")
         
         toolbar.addWidget(penButton)
         toolbar.addWidget(eraserButton)
+        toolbar.addWidget(selectButton)
     
     # Adds size control slider and number box to the toolbar
     def createSizeControls(self, toolbar):
