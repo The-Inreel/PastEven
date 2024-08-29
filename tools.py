@@ -13,6 +13,8 @@ class RectangleSelectTool:
         self.isResizing = False
         self.resizeEdge = None
         self.moveOffset = QPointF()
+        self.isSelecting = False
+        self.startPoint = None
 
     def startSelect(self, startPoint):
         self.selectRect = QGraphicsRectItem(QRectF(startPoint, startPoint))
@@ -21,12 +23,13 @@ class RectangleSelectTool:
 
     def updateSelect(self, endPoint):
         if self.selectRect:
-            rect = QRectF(self.selectRect.rect().topLeft(), endPoint)
-            self.selectRect.setRect(rect)
+            rect = QRectF(self.startPoint, endPoint)
+            self.selectRect.setRect(rect.normalized())
 
-    def finalizeSelect(self, pixmap):
+    def finalizeSelect(self, pixmap, endPoint):
         if self.selectRect:
-            rect = self.selectRect.rect().intersected(pixmap.rect())
+            rect = QRectF(self.startPoint, endPoint).normalized()
+            rect = rect.intersected(pixmap.rect())
             self.selectedArea = rect
             self.selectedPixmap = pixmap.copy(rect.toRect())
             self.scene.removeItem(self.selectRect)
@@ -42,6 +45,31 @@ class RectangleSelectTool:
         self.isMoving = False
         self.isResizing = False
         self.resizeEdge = None
+    
+    def handleMousePress(self, startPoint):
+        self.startPoint = startPoint
+        if self.selectedArea and not self.selectedArea.contains(startPoint):
+            self.clearSelection()
+        
+        if not self.selectedArea:
+            self.isSelecting = True
+            self.startSelect(startPoint)
+        else:
+            self.checkResizeStart(startPoint)
+            
+    def handleMouseMove(self, newPoint):
+        if self.isSelecting:
+            self.updateSelect(newPoint)
+        elif self.isResizing:
+            self.resizeSelectedArea(newPoint)
+        elif self.isMoving:
+            self.moveSelectedArea(newPoint)
+    
+    def handleMouseRelease(self, endPoint):
+        if self.isSelecting:
+            self.finalizeSelect(self.canvas.pixmap, endPoint)
+        self.isSelecting = False
+        self.finishInteraction()
 
     def resizeSelectedArea(self, newPos):
         if not self.selectedArea or not self.resizeEdge:
@@ -66,7 +94,7 @@ class RectangleSelectTool:
         if not self.selectedArea:
             return
         
-        edge_threshold = 10  # pixels
+        edge_threshold = 10
         rect = self.selectedArea
         
         left_edge = abs(pos.x() - rect.left()) < edge_threshold
@@ -83,6 +111,25 @@ class RectangleSelectTool:
             self.moveOffset = pos - rect.topLeft()
             self.canvas.setCursor(Qt.SizeAllCursor)
             
+    def handleHover(self, pos):
+        if self.selectedArea:
+            edge_threshold = 10
+            rect = self.selectedArea
+            
+            left_edge = abs(pos.x() - rect.left()) < edge_threshold
+            right_edge = abs(pos.x() - rect.right()) < edge_threshold
+            top_edge = abs(pos.y() - rect.top()) < edge_threshold
+            bottom_edge = abs(pos.y() - rect.bottom()) < edge_threshold
+            
+            if left_edge or right_edge or top_edge or bottom_edge:
+                self.updateCursor((left_edge, right_edge, top_edge, bottom_edge))
+            elif rect.contains(pos):
+                self.canvas.setCursor(Qt.SizeAllCursor)
+            else:
+                self.canvas.setCursor(Qt.CrossCursor)
+        else:
+            self.canvas.setCursor(Qt.CrossCursor)
+            
     def updateCursor(self, edges):
         left, right, top, bottom = edges
         if top and left:
@@ -97,17 +144,6 @@ class RectangleSelectTool:
             self.canvas.setCursor(Qt.SizeHorCursor)
         elif top or bottom:
             self.canvas.setCursor(Qt.SizeVerCursor)
-    
-    def clearSelection(self):
-        if self.selectRect:
-            self.scene.removeItem(self.selectRect)
-        self.selectRect = None
-        self.selectedArea = None
-        self.selectedPixmap = None
-        self.isMoving = False
-        self.isResizing = False
-        self.resizeEdge = None
-        self.canvas.setCursor(Qt.ArrowCursor)
 
     def updateSelectedAreaVisual(self):
         if self.selectedArea:

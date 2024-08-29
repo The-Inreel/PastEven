@@ -25,6 +25,7 @@ class Canvas(QGraphicsView):
         self.setScene(self.scene)
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.canvasColor = Qt.GlobalColor.transparent
+        self.setMouseTracking(True)
         # Set canvas settings
         self.canvasSize = (1500, 900)
         self.pixmap = QPixmap(*self.canvasSize)
@@ -50,13 +51,7 @@ class Canvas(QGraphicsView):
         if event.button() == Qt.LeftButton:
             self.lastPoint = self.mapToScene(event.position().toPoint())
             if self.tools == Tools.RECTANGLE_SELECT:
-                if self.rectangleSelectTool.selectedArea and not self.rectangleSelectTool.selectedArea.contains(self.lastPoint):
-                    self.rectangleSelectTool.clearSelection()
-                    self.rectangleSelectTool.startSelect(self.lastPoint)
-                elif self.rectangleSelectTool.selectedArea:
-                    self.rectangleSelectTool.checkResizeStart(self.lastPoint)
-                else:
-                    self.rectangleSelectTool.startSelect(self.lastPoint)
+                self.rectangleSelectTool.handleMousePress(self.lastPoint)
             else:
                 self.drawing = True
                 self.undoStack.append(self.pixmap.copy())
@@ -68,12 +63,10 @@ class Canvas(QGraphicsView):
     def mouseMoveEvent(self, event):
         newPoint = self.mapToScene(event.position().toPoint())
         if self.tools == Tools.RECTANGLE_SELECT:
-            if self.rectangleSelectTool.isResizing:
-                self.rectangleSelectTool.resizeSelectedArea(newPoint)
-            elif self.rectangleSelectTool.isMoving:
-                self.rectangleSelectTool.moveSelectedArea(newPoint)
-            elif self.rectangleSelectTool.selectRect:
-                self.rectangleSelectTool.updateSelect(newPoint)
+            if event.buttons() == Qt.LeftButton:
+                self.rectangleSelectTool.handleMouseMove(newPoint)
+            else:
+                self.rectangleSelectTool.handleHover(newPoint)
         elif self.drawing:
             self.drawLineTo(newPoint)
         self.lastPoint = newPoint
@@ -82,9 +75,7 @@ class Canvas(QGraphicsView):
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
             if self.tools == Tools.RECTANGLE_SELECT:
-                if self.rectangleSelectTool.selectRect:
-                    self.rectangleSelectTool.finalizeSelect(self.pixmap)
-                self.rectangleSelectTool.finishInteraction()
+                self.rectangleSelectTool.handleMouseRelease(self.mapToScene(event.position().toPoint()))
             else:
                 self.drawing = False
         
