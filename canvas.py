@@ -111,6 +111,7 @@ class Canvas(QGraphicsView):
             self.currentTool = self.eraserTool
         elif tool == Tools.RECTANGLE_SELECT:
             self.currentTool = self.rectangleSelectTool
+        self.setCursor(Qt.CrossCursor if isinstance(self.currentTool, RectangleSelectTool) else Qt.ArrowCursor)
     
     # Sets the current drawing color
     def setColor(self, color):
@@ -181,38 +182,50 @@ class Canvas(QGraphicsView):
         file_extension = os.path.splitext(file_name)[1].lower()
         return file_extension in image_extensions
     
-    # Detects and adds borders in the current canvas image
-    # TODO: Fix this
+    # Detects and adds borders in the current selected region
     def findBorder(self):
-        pixmapAsImage = self.label.pixmap().toImage()
-        width, height = pixmapAsImage.width(), pixmapAsImage.height()
-        bytes_per_pixel = pixmapAsImage.depth() // 8
-        temp = bytearray(pixmapAsImage.bits())
-        temp = memoryview(temp)
-        temp = temp.cast('B')
-        temp = temp[:pixmapAsImage.sizeInBytes()]
-        cv_image = np.array(temp).reshape(height, width, bytes_per_pixel)
+        if not self.rectangleSelectTool.selectedArea:
+            print("No area selected. Please select an area first with rectangle tool.")
+            return
+
+        selected_rect = self.rectangleSelectTool.selectedArea.toRect()
+        image = self.pixmap.toImage()
+        selected_image = image.copy(selected_rect)
         
-        cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
-        gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
-        canny_image = cv2.Canny(gray, 0, 100)
-                
-        contours, _ = cv2.findContours(canny_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(cv_image, contours, -1, (0, 0, 0), thickness=-1)
+        # Convert QImage to numpy array
+        width, height = selected_image.width(), selected_image.height()
+        bytes_per_line = selected_image.bytesPerLine()
+        ptr = selected_image.constBits()
+        arr = np.array(ptr).reshape(height, bytes_per_line // 4, 4)
+        
+        bgr_image = cv2.cvtColor(arr, cv2.COLOR_RGBA2BGR)
+        gray = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2GRAY)
+        edges = cv2.Canny(gray, 50, 150)
+        
+        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        mask = np.zeros(bgr_image.shape[:2], dtype=np.uint8)
+        cv2.drawContours(mask, contours, -1, (255), 3)
         
         # This was an idea to increase the size of the border whenever the pen size is large enough
         # cv2.drawContours(cv_image, contours, -1, (0, 0, 0), thickness = (self.ppSize // 30) + 1)
         
-        
         # last number is for offset (MAMA!) 
         # L youre wrong it was the thickness get better - Ethan
         
-        blurred_image = cv_image.copy()
-        blurred_image[canny_image != 0] = cv2.GaussianBlur(blurred_image[canny_image != 0], (15, 15), 1)
-    
-        PIL_image = Image.fromarray(blurred_image)
-        # DO NOT REMOVE THE SECOND RGB SWAP IT WILL EXPLODE PLEASE DONT I DONT WANT TO ACTUALLY DEBUG
-        self.label.setPixmap(QPixmap.fromImage((ImageQt.toqimage(PIL_image)).rgbSwapped().rgbSwapped()))
+        borderOverlay = np.zeros_like(arr)
+        borderOverlay[:, :, 3] = mask
+        borderOverlay[mask == 255] = [0, 0, 0, 255]
+
+        borderImage = QImage(borderOverlay.data, borderOverlay.shape[1], borderOverlay.shape[0], borderOverlay.strides[0], QImage.Format_RGBA8888)
+        borderPixmap = QPixmap.fromImage(borderImage)
+        
+        # Draw the mask onto the transparent pixmap
+        painter = QPainter(self.pixmap)
+        painter.drawPixmap(selected_rect.topLeft(), borderPixmap)
+        painter.end()
+        
+        # Update the pixmap item
+        self.pixmapItem.setPixmap(self.pixmap)
         self.update()
-        self.addUndo()
-        self.canvas = self.label.pixmap()
+        self.undoStack.append(self.pixmap.copy())
+        self.redoStack.clear()
