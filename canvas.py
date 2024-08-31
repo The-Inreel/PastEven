@@ -5,7 +5,7 @@ from PySide6 import QtCore
 
 from enum import Enum
 from PIL import ImageQt, Image
-from tools import RectangleSelectTool
+from tools import RectangleSelectTool, PenTool, EraserTool
 import cv2
 import numpy as np
 import os
@@ -34,13 +34,13 @@ class Canvas(QGraphicsView):
         
         self.border = self.scene.addRect(self.pixmap.rect(), QPen(Qt.gray, 2))
         
-        self.lastPoint = None
-        self.drawing = False
         self.color = QColor(255, 0, 0)
         self.ppSize = 4
         self.tools = Tools.PENCIL
-        
+        self.penTool = PenTool(self)
+        self.eraserTool = EraserTool(self)
         self.rectangleSelectTool = RectangleSelectTool(self)
+        self.currentTool = self.penTool
         
         self.undoStack = []
         self.redoStack = []
@@ -48,36 +48,17 @@ class Canvas(QGraphicsView):
     
     # Initializes drawing on mouse press
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.lastPoint = self.mapToScene(event.position().toPoint())
-            if self.tools == Tools.RECTANGLE_SELECT:
-                self.rectangleSelectTool.handleMousePress(self.lastPoint)
-            else:
-                self.drawing = True
-                self.undoStack.append(self.pixmap.copy())
-                self.redoStack.clear()
-                self.drawSinglePoint(self.lastPoint)
-            self.clicked.emit()
+        self.currentTool.handleMousePress(event)
+        self.clicked.emit()
             
     # Handles mouse movement drawing
     def mouseMoveEvent(self, event):
-        newPoint = self.mapToScene(event.position().toPoint())
-        if self.tools == Tools.RECTANGLE_SELECT:
-            if event.buttons() == Qt.LeftButton:
-                self.rectangleSelectTool.handleMouseMove(newPoint)
-            else:
-                self.rectangleSelectTool.handleHover(newPoint)
-        elif self.drawing:
-            self.drawLineTo(newPoint)
-        self.lastPoint = newPoint
+        self.currentTool.handleMouseMove(event)
     
     # Finalizes drawing on mouse release
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
-            if self.tools == Tools.RECTANGLE_SELECT:
-                self.rectangleSelectTool.handleMouseRelease(self.mapToScene(event.position().toPoint()))
-            else:
-                self.drawing = False
+            self.currentTool.handleMouseRelease(event)
         
     # Handles key presses
     def keyPressEvent(self, event):
@@ -96,41 +77,6 @@ class Canvas(QGraphicsView):
         self.pixmapItem = self.scene.addPixmap(self.pixmap)
         self.border = self.scene.addRect(self.pixmap.rect(), QPen(Qt.gray, 2))
         self.update()
-    
-    # Draws a line to the given end point
-    def drawLineTo(self, endPoint):
-        painter = QPainter(self.pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
-        if self.tools == Tools.PENCIL:
-            pen = QPen(self.color, self.ppSize, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-        elif self.tools == Tools.ERASER:  # Eraser
-            pen = QPen(Qt.transparent, self.ppSize, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-            painter.setCompositionMode(QPainter.CompositionMode_Clear)
-        
-        painter.setPen(pen)
-        painter.drawLine(self.lastPoint, endPoint)
-        painter.end()
-        
-        self.pixmapItem.setPixmap(self.pixmap)
-            
-    # Draws a single point at the specified location   
-    def drawSinglePoint(self, point):
-        painter = QPainter(self.pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
-        if self.tools == Tools.PENCIL:
-            painter.setPen(QPen(self.color, 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
-            painter.setBrush(QBrush(self.color))
-        elif self.tools == Tools.ERASER:  # Eraser
-            painter.setCompositionMode(QPainter.CompositionMode_Clear)
-            painter.setPen(QPen(Qt.transparent, 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
-            painter.setBrush(QBrush(Qt.transparent))
-        
-        painter.drawEllipse(point, self.ppSize / 2, self.ppSize / 2)
-        painter.end()
-        
-        self.pixmapItem.setPixmap(self.pixmap)
 
     def deleteSelectedArea(self):
         if self.rectangleSelectTool.deleteSelectedArea(self.pixmap):
@@ -159,10 +105,12 @@ class Canvas(QGraphicsView):
     # Sets the current drawing tool
     def setTool(self, tool):
         self.tools = tool
-        if tool == Tools.RECTANGLE_SELECT:
-            self.setCursor(Qt.CrossCursor)  
-        else:
-            self.setCursor(Qt.ArrowCursor)
+        if tool == Tools.PENCIL:
+            self.currentTool = self.penTool
+        elif tool == Tools.ERASER:
+            self.currentTool = self.eraserTool
+        elif tool == Tools.RECTANGLE_SELECT:
+            self.currentTool = self.rectangleSelectTool
     
     # Sets the current drawing color
     def setColor(self, color):
