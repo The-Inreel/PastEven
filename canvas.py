@@ -202,7 +202,8 @@ class Canvas(QGraphicsView):
         gray = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2GRAY)
         edges = cv2.Canny(gray, 50, 150)
         
-        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # RETR_EXTERNAL only if we want outside edge
+        contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         mask = np.zeros(bgr_image.shape[:2], dtype=np.uint8)
         cv2.drawContours(mask, contours, -1, (255), 3)
         
